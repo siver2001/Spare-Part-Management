@@ -117,9 +117,20 @@ export const SupabaseService = {
   },
 
   createPart: async (data: Omit<SparePart, 'id' | 'createdAt' | 'updatedAt' | 'no'>): Promise<SparePart> => {
+    // Manually calculate next 'no'
+    const { data: lastPart } = await supabase
+      .from('spare_parts')
+      .select('no')
+      .order('no', { ascending: false })
+      .limit(1)
+      .single();
+    
+    const nextNo = (lastPart?.no || 0) + 1;
+
     const { data: newPart, error } = await supabase
       .from('spare_parts')
       .insert([{
+        no: nextNo,
         part_name: data.partName,
         part_number: data.partNumber,
         description: data.description,
@@ -224,6 +235,15 @@ export const SupabaseService = {
     if (error) throw error;
   },
 
+  deleteAllParts: async (): Promise<void> => {
+    const { error } = await supabase
+      .from('spare_parts')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows where id is not a dummy uuid
+
+    if (error) throw error;
+  },
+
   checkBinLocation: async (binLocation: string): Promise<SparePart | null> => {
     const { data, error } = await supabase
       .from('spare_parts')
@@ -257,10 +277,11 @@ export const SupabaseService = {
     };
   },
 
-  bulkCreateParts: async (parts: Omit<SparePart, 'id' | 'createdAt' | 'updatedAt' | 'no'>[]): Promise<void> => {
+  bulkCreateParts: async (parts: any[]): Promise<void> => {
     const { error } = await supabase
       .from('spare_parts')
-      .insert(parts.map(p => ({
+      .insert(parts.map((p, index) => ({
+        no: p.no || (index + 1), 
         part_name: p.partName,
         part_number: p.partNumber,
         description: p.description,
