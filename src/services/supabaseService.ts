@@ -107,6 +107,9 @@ export const SupabaseService = {
       reorderQuantity: p.reorder_quantity,
       leadTimeDays: p.lead_time_days,
       qrCodeValue: p.qr_code_value,
+      costCenter: p.cost_center,
+      useFor: p.use_for,
+      minStock: p.min_stock || 0,
       isActive: p.is_active,
       createdAt: p.created_at,
       updatedAt: p.updated_at
@@ -128,6 +131,9 @@ export const SupabaseService = {
         reorder_quantity: data.reorderQuantity,
         lead_time_days: data.leadTimeDays,
         qr_code_value: data.qrCodeValue,
+        cost_center: data.costCenter,
+        use_for: data.useFor,
+        min_stock: data.minStock,
         is_active: data.isActive
       }])
       .select()
@@ -149,6 +155,9 @@ export const SupabaseService = {
       reorderQuantity: newPart.reorder_quantity,
       leadTimeDays: newPart.lead_time_days,
       qrCodeValue: newPart.qr_code_value,
+      costCenter: newPart.cost_center,
+      useFor: newPart.use_for,
+      minStock: newPart.min_stock || 0,
       isActive: newPart.is_active,
       createdAt: newPart.created_at,
       updatedAt: newPart.updated_at
@@ -169,6 +178,9 @@ export const SupabaseService = {
     if (updates.reorderQuantity !== undefined) mappedUpdates.reorder_quantity = updates.reorderQuantity;
     if (updates.leadTimeDays !== undefined) mappedUpdates.lead_time_days = updates.leadTimeDays;
     if (updates.qrCodeValue !== undefined) mappedUpdates.qr_code_value = updates.qrCodeValue;
+    if (updates.costCenter !== undefined) mappedUpdates.cost_center = updates.costCenter;
+    if (updates.useFor !== undefined) mappedUpdates.use_for = updates.useFor;
+    if (updates.minStock !== undefined) mappedUpdates.min_stock = updates.minStock;
     if (updates.isActive !== undefined) mappedUpdates.is_active = updates.isActive;
 
     const { data: updatedPart, error } = await supabase
@@ -194,10 +206,79 @@ export const SupabaseService = {
       reorderQuantity: updatedPart.reorder_quantity,
       leadTimeDays: updatedPart.lead_time_days,
       qrCodeValue: updatedPart.qr_code_value,
+      costCenter: updatedPart.cost_center,
+      useFor: updatedPart.use_for,
+      minStock: updatedPart.min_stock || 0,
       isActive: updatedPart.is_active,
       createdAt: updatedPart.created_at,
       updatedAt: updatedPart.updated_at
     };
+  },
+
+  deletePart: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('spare_parts')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  checkBinLocation: async (binLocation: string): Promise<SparePart | null> => {
+    const { data, error } = await supabase
+      .from('spare_parts')
+      .select('*')
+      .eq('bin_location', binLocation)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "Row not found"
+    if (!data) return null;
+
+    return {
+      id: data.id,
+      no: data.no,
+      partName: data.part_name,
+      partNumber: data.part_number,
+      description: data.description,
+      binLocation: data.bin_location,
+      currentStockOk: data.current_stock_ok,
+      currentStockDamaged: data.current_stock_damaged,
+      safetyStockOk: data.safety_stock_ok,
+      maxStock: data.max_stock,
+      reorderQuantity: data.reorder_quantity,
+      leadTimeDays: data.lead_time_days,
+      qrCodeValue: data.qr_code_value,
+      costCenter: data.cost_center,
+      useFor: data.use_for,
+      minStock: data.min_stock || 0,
+      isActive: data.is_active,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+    };
+  },
+
+  bulkCreateParts: async (parts: Omit<SparePart, 'id' | 'createdAt' | 'updatedAt' | 'no'>[]): Promise<void> => {
+    const { error } = await supabase
+      .from('spare_parts')
+      .insert(parts.map(p => ({
+        part_name: p.partName,
+        part_number: p.partNumber,
+        description: p.description,
+        bin_location: p.binLocation,
+        current_stock_ok: p.currentStockOk,
+        current_stock_damaged: p.currentStockDamaged,
+        safety_stock_ok: p.safetyStockOk,
+        max_stock: p.maxStock,
+        reorder_quantity: p.reorderQuantity,
+        lead_time_days: p.leadTimeDays,
+        qr_code_value: p.qrCodeValue,
+        cost_center: p.costCenter,
+        use_for: p.useFor,
+        min_stock: p.minStock,
+        is_active: p.isActive
+      })));
+
+    if (error) throw error;
   },
 
   // --- Transactions ---

@@ -13,17 +13,20 @@ export interface User {
 export interface SparePart {
   id: string;
   no: number;
-  partName: string;
-  partNumber: string;
-  description?: string;
+  qrCodeValue: string; // Moved up as per user request order preference (logical only)
   binLocation: string;
+  partNumber: string;
+  partName: string;
+  description?: string;
+  costCenter?: string; // New
+  useFor?: string;      // New
   currentStockOk: number;
   currentStockDamaged: number;
   safetyStockOk: number;
   maxStock: number;
+  minStock: number;     // New
   reorderQuantity: number;
   leadTimeDays: number;
-  qrCodeValue: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

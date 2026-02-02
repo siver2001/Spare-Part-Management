@@ -9,7 +9,8 @@ import { SupabaseService } from "@/services/supabaseService";
 import { AddPartModal } from "@/components/parts/AddPartModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, FileSpreadsheet } from "lucide-react";
+import { ExcelActions } from "@/components/parts/ExcelActions";
 
 export default function Home() {
   const [data, setData] = useState<SparePart[]>([]);
@@ -17,7 +18,7 @@ export default function Home() {
   const { user } = useAuth();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
-  const canAdd = user && ['ADMIN', 'POWER_USER'].includes(user.role);
+  const canAdd = !!user; // All logged in users can Add Part
 
   // Function to refresh data, passed to actions
   const refreshData = async () => {
@@ -69,6 +70,8 @@ export default function Home() {
 
                </div>
             )}
+            
+            <ExcelActions data={data} onImportSuccess={refreshData} />
             
             {canAdd && (
                 <Button onClick={() => setIsAddModalOpen(true)} className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 shrink-0">

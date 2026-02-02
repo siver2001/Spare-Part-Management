@@ -82,8 +82,20 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
                <Input value={formData.description || ''} onChange={(e) => handleChange('description', e.target.value)} className="col-span-3" />
              </div>
              <div className="grid grid-cols-4 items-center gap-4">
+               <Label className="text-right">Cost Center</Label>
+               <Input value={formData.costCenter || ''} onChange={(e) => handleChange('costCenter', e.target.value)} className="col-span-3" />
+             </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+               <Label className="text-right">Use For</Label>
+               <Input value={formData.useFor || ''} onChange={(e) => handleChange('useFor', e.target.value)} className="col-span-3" />
+             </div>
+             <div className="grid grid-cols-4 items-center gap-4">
                <Label className="text-right">Bin Location</Label>
                <Input value={formData.binLocation || ''} onChange={(e) => handleChange('binLocation', e.target.value)} className="col-span-3" />
+             </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+               <Label className="text-right">Min Stock</Label>
+               <Input type="number" value={formData.minStock || 0} onChange={(e) => handleChange('minStock', Number(e.target.value))} className="col-span-3" />
              </div>
              <div className="grid grid-cols-4 items-center gap-4">
                <Label className="text-right">Safety Stock</Label>

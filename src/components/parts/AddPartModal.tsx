@@ -64,6 +64,17 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
 
     setLoading(true);
     try {
+      // Check for duplicate Bin Location
+      if (formData.binLocation) {
+        const existingPart = await SupabaseService.checkBinLocation(formData.binLocation);
+        if (existingPart) {
+             const confirmOverwrite = confirm(`Bin location "${formData.binLocation}" is already used by part "${existingPart.partName}". \n\nDo you want to continue and add this new part to the same bin?`);
+             if (!confirmOverwrite) {
+                 setLoading(false);
+                 return;
+             }
+        }
+      }
       await SupabaseService.createPart({
           ...formData,
           // In a real app, we'd upload the image here and get a URL
@@ -159,6 +170,17 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
                      
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
+                           <Label>Cost Center</Label>
+                           <Input value={formData.costCenter || ''} onChange={(e) => handleChange('costCenter', e.target.value)} placeholder="e.g. CC-001" />
+                        </div>
+                        <div className="space-y-2">
+                           <Label>Use For (Machine/Model)</Label>
+                           <Input value={formData.useFor || ''} onChange={(e) => handleChange('useFor', e.target.value)} placeholder="e.g. Line A Conveyor" />
+                        </div>
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
                            <Label>Bin Location</Label>
                            <Input value={formData.binLocation || ''} onChange={(e) => handleBinChange(e.target.value)} placeholder="e.g. A-01" />
                         </div>
@@ -181,7 +203,11 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
                           </div>
                        </div>
                        
-                       <div className="grid grid-cols-3 gap-2">
+                       <div className="grid grid-cols-4 gap-2">
+                           <div>
+                               <Label className="text-xs text-muted-foreground">Min Stock</Label>
+                               <Input type="number" className="h-8 text-sm" value={formData.minStock || 0} onChange={(e) => handleChange('minStock', Number(e.target.value))} />
+                           </div>
                            <div>
                                <Label className="text-xs text-muted-foreground">Safety Stock</Label>
                                <Input type="number" className="h-8 text-sm" value={formData.safetyStockOk || 0} onChange={(e) => handleChange('safetyStockOk', Number(e.target.value))} />

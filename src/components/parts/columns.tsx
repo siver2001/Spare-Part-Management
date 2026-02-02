@@ -3,7 +3,7 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { SparePart } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, MoreHorizontal, ArrowDownCircle, ArrowUpCircle, Edit, QrCode } from 'lucide-react';
+import { ArrowUpDown, MoreHorizontal, ArrowDownCircle, ArrowUpCircle, Edit, QrCode, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 import { StockActionModal } from './StockActionModal';
@@ -54,9 +54,31 @@ const ActionCell = ({ part, refreshData }: { part: SparePart, refreshData: () =>
             size="sm" 
             className="h-8 w-8 p-0 ml-1 text-gray-500 hover:text-gray-900"
             onClick={() => setModalOpen('EDIT')}
+            title="Edit"
           >
             <Edit className="h-4 w-4" />
           </Button>
+        )}
+        {(user?.role === 'ADMIN' || user?.role === 'POWER_USER') && (
+           <Button 
+             variant="ghost" 
+             size="sm" 
+             className="h-8 w-8 p-0 ml-1 text-red-400 hover:text-red-700 hover:bg-red-50"
+             onClick={() => {
+                if(confirm('Are you sure you want to delete this part? This cannot be undone.')) {
+                    // Call delete service directly (quick inline for now, ideally via function)
+                   import('@/services/supabaseService').then(({SupabaseService}) => {
+                       SupabaseService.deletePart(part.id).then(() => {
+                           refreshData();
+                           // toast.success('Deleted'); // Need to import toast or pass it
+                       }).catch(e => alert(e.message));
+                   })
+                }
+             }}
+             title="Delete"
+           >
+             <Trash2 className="h-4 w-4" /> 
+           </Button>
         )}
       </div>
 
@@ -115,26 +137,13 @@ export const createColumns = (refreshData: () => void): ColumnDef<SparePart>[] =
     enableSorting: true,
   },
   {
-    accessorKey: 'partName',
-    header: 'Part Name',
-    cell: ({ row }) => <div className="font-medium whitespace-nowrap">{row.getValue('partName')}</div>
-  },
-  {
-    accessorKey: 'partNumber',
-    header: 'Part Number',
-  },
-  {
-    accessorKey: 'description',
-    header: 'Description',
-    cell: ({ row }) => <div className="max-w-[150px] truncate" title={row.getValue('description')}>{row.getValue('description')}</div>
-  },
-  {
     accessorKey: 'qrCodeValue',
     header: 'QR Code',
     cell: ({ row }) => {
         const val = row.getValue('qrCodeValue') as string;
+        if (!val) return <span className="text-gray-300">-</span>;
         return (
-            <div className="flex items-center justify-center h-8 w-8 bg-gray-50 rounded-md border border-gray-200" title={`QR: ${val}`}>
+            <div className="flex items-center justify-center h-8 w-8 bg-gray-50 rounded-md border border-gray-200 mx-auto" title={`QR: ${val}`}>
                 <QrCode className="h-5 w-5 text-gray-700" />
             </div>
         )
@@ -142,20 +151,63 @@ export const createColumns = (refreshData: () => void): ColumnDef<SparePart>[] =
   },
   {
     accessorKey: 'binLocation',
-    header: 'Bin',
+    header: 'Bin Location',
+  },
+  {
+    accessorKey: 'partNumber',
+    header: 'Part Number',
+    cell: ({ row }) => <div className="font-mono text-sm">{row.getValue('partNumber')}</div>
+  },
+  {
+    accessorKey: 'partName',
+    header: 'Part Name',
+    cell: ({ row }) => <div className="font-medium whitespace-nowrap">{row.getValue('partName')}</div>
+  },
+  {
+    accessorKey: 'description',
+    header: 'Description',
+    cell: ({ row }) => <div className="max-w-[150px] truncate text-muted-foreground" title={row.getValue('description') || ''}>{row.getValue('description') || '-'}</div>
+  },
+  {
+    accessorKey: 'costCenter',
+    header: 'Cost Center',
+    cell: ({ row }) => <div className="text-center">{row.getValue('costCenter') || '-'}</div>
+  },
+  {
+    accessorKey: 'useFor',
+    header: 'Use For',
+    cell: ({ row }) => <div className="max-w-[120px] truncate" title={row.getValue('useFor') || ''}>{row.getValue('useFor') || '-'}</div>
   },
   {
     id: 'stock',
-    header: 'Stock (OK/DMG)',
+    accessorKey: 'currentStockOk', // Use accessor for sorting
+    header: 'Current Stock',
     cell: ({ row }) => {
       const ok = row.original.currentStockOk;
-      const dmg = row.original.currentStockDamaged;
       const safety = row.original.safetyStockOk;
-      const isLow = ok <= safety;
+      const min = row.original.minStock;
+      
+      // "Safety is for safe quantity, if spare part > that number then ok"
+      const isSafe = ok > safety;
+      const isCritical = ok < min;
+
       return (
-        <div className="flex gap-2 text-sm">
-          <Badge variant={isLow ? "destructive" : "secondary"}>OK: {ok}</Badge>
-          <Badge variant="outline" className="text-gray-500">DMG: {dmg}</Badge>
+        <div className="flex flex-col items-center">
+           <Badge 
+             className={
+               isCritical ? "bg-red-600 hover:bg-red-700" : 
+               !isSafe ? "bg-yellow-500 hover:bg-yellow-600 text-black" : 
+               "bg-green-600 hover:bg-green-700"
+             }
+           >
+             {ok}
+           </Badge>
+           {/* Optional: Show Damaged if > 0 in small text */}
+           {row.original.currentStockDamaged > 0 && (
+             <span className="text-[10px] text-red-500 font-semibold mt-1">
+               (+{row.original.currentStockDamaged} DMG)
+             </span>
+           )}
         </div>
       );
     }
@@ -163,22 +215,27 @@ export const createColumns = (refreshData: () => void): ColumnDef<SparePart>[] =
   {
     accessorKey: 'safetyStockOk',
     header: 'Safety',
-    cell: ({ row }) => <div className="text-center">{row.getValue('safetyStockOk')}</div>
+    cell: ({ row }) => <div className="text-center text-gray-600">{row.getValue('safetyStockOk')}</div>
   },
   {
     accessorKey: 'maxStock',
     header: 'Max',
-    cell: ({ row }) => <div className="text-center">{row.getValue('maxStock')}</div>
+    cell: ({ row }) => <div className="text-center text-gray-500">{row.getValue('maxStock')}</div>
+  },
+  {
+    accessorKey: 'minStock',
+    header: 'Min',
+    cell: ({ row }) => <div className="text-center text-gray-500">{row.getValue('minStock')}</div>
   },
   {
     accessorKey: 'reorderQuantity',
     header: 'Reorder',
-    cell: ({ row }) => <div className="text-center">{row.getValue('reorderQuantity')}</div>
+    cell: ({ row }) => <div className="text-center text-gray-500">{row.getValue('reorderQuantity')}</div>
   },
   {
     accessorKey: 'leadTimeDays',
     header: 'Lead Time',
-    cell: ({ row }) => <div className="text-center">{row.getValue('leadTimeDays')} days</div>
+    cell: ({ row }) => <div className="text-center text-gray-500">{row.getValue('leadTimeDays')}</div>
   },
   {
     id: 'actions',

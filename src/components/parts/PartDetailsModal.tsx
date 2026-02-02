@@ -103,6 +103,18 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                             <span className="font-medium">{part.binLocation || 'N/A'}</span>
                         </div>
                         <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs">Cost Center</span>
+                            <span className="font-medium">{part.costCenter || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs">Use For</span>
+                            <span className="font-medium">{part.useFor || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Min Stock</span>
+                            <span className="font-medium text-red-600">{part.minStock || 0} units</span>
+                        </div>
+                        <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Safety Level</span>
                             <span className="font-medium text-orange-600">{part.safetyStockOk} units</span>
                         </div>
