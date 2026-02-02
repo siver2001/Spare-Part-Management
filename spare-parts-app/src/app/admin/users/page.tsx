@@ -5,7 +5,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { createColumns } from "@/components/users/columns";
 import { useEffect, useState } from "react";
 import { User } from "@/types";
-import { MockService } from "@/services/mockData";
+import { SupabaseService } from "@/services/supabaseService";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserModal } from "@/components/users/UserModal";
@@ -18,7 +18,7 @@ export default function UsersPage() {
 
   const refreshData = async () => {
     try {
-      const users = await MockService.getUsers();
+      const users = await SupabaseService.getUsers();
       setData(users);
     } catch (error) {
       console.error(error);
@@ -44,8 +44,8 @@ export default function UsersPage() {
   const handleDelete = async (user: User) => {
     if (confirm(`Are you sure you want to delete user ${user.username}?`)) {
         try {
-            await MockService.deleteUser(user.id);
-            // toast.success('User deleted'); // Assuming we have toast, otherwise just refresh
+            await SupabaseService.deleteUser(user.id);
+            // toast.success('User deleted'); 
             refreshData();
         } catch (error) {
             console.error('Failed to delete user', error);

@@ -5,7 +5,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { columns } from "@/components/transactions/columns";
 import { useEffect, useState } from "react";
 import { Transaction } from "@/types";
-import { MockService } from "@/services/mockData";
+import { SupabaseService } from "@/services/supabaseService";
 import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -15,7 +15,7 @@ export default function TransactionsPage() {
 
   const refreshData = async () => {
     try {
-      const txs = await MockService.getTransactions();
+      const txs = await SupabaseService.getTransactions();
       setData(txs);
     } catch (error) {
       console.error(error);

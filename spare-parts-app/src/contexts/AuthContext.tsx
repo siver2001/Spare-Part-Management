@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Role } from '@/types';
-import { MockService } from '@/services/mockData';
+import { SupabaseService } from '@/services/supabaseService';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
@@ -31,9 +31,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (username: string) => {
     setIsLoading(true);
     try {
-      // Mock login logic: find user by username
-      // In real app, this would verify password hash
-      const users = await MockService.getUsers();
+      // Login logic: find user by username in Supabase profiles
+      const users = await SupabaseService.getUsers();
       const foundUser = users.find((u) => u.username === username);
 
       if (foundUser) {

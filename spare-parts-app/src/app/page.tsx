@@ -5,7 +5,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { createColumns } from "@/components/parts/columns";
 import { useEffect, useState } from "react";
 import { SparePart } from "@/types";
-import { MockService } from "@/services/mockData";
+import { SupabaseService } from "@/services/supabaseService";
 import { AddPartModal } from "@/components/parts/AddPartModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export default function Home() {
   const refreshData = async () => {
     // Keep loading state minimal for better UX, or show spinner
     try {
-      const parts = await MockService.getParts();
+      const parts = await SupabaseService.getParts();
       setData(parts);
     } catch (error) {
       console.error(error);

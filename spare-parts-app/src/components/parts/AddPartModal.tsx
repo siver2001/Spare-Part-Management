@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SparePart } from '@/types';
-import { MockService } from '@/services/mockData';
+import { SupabaseService } from '@/services/supabaseService';
 import { toast } from 'sonner';
 import QRCode from 'react-qr-code';
 
@@ -64,7 +64,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
 
     setLoading(true);
     try {
-      await MockService.createPart({
+      await SupabaseService.createPart({
           ...formData,
           // In a real app, we'd upload the image here and get a URL
       } as any);

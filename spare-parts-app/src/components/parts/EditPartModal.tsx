@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SparePart } from '@/types';
-import { MockService } from '@/services/mockData';
+import { SupabaseService } from '@/services/supabaseService';
 import { toast } from 'sonner';
 
 interface EditPartModalProps {
@@ -48,7 +48,7 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
 
     setLoading(true);
     try {
-      await MockService.updatePart(part.id, formData);
+      await SupabaseService.updatePart(part.id, formData);
       toast.success('Part updated successfully');
       onSuccess();
       onClose();

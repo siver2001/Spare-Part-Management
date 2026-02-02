@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { User, Role } from '@/types';
-import { MockService } from '@/services/mockData';
+import { SupabaseService } from '@/services/supabaseService';
 import { toast } from 'sonner';
 
 interface UserModalProps {
@@ -50,10 +50,10 @@ export function UserModal({ isOpen, onClose, user, onSuccess }: UserModalProps) 
 
     try {
       if (user) {
-        await MockService.updateUser(user.id, { username, displayName, role, isActive, password: password || undefined });
+        await SupabaseService.updateUser(user.id, { username, displayName, role, isActive, password: password || undefined });
         toast.success('User updated');
       } else {
-        await MockService.createUser({ username, displayName, role, isActive, password });
+        await SupabaseService.createUser({ username, displayName, role, isActive, password });
         toast.success('User created');
       }
       onSuccess();

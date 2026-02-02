@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Shield, Info } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -79,16 +79,6 @@ export default function LoginPage() {
               />
             </div>
             
-            <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100 text-xs text-blue-700 space-y-1">
-              <p className="font-semibold flex items-center gap-1">
-                <Info className="h-3 w-3" /> Demo Credentials:
-              </p>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                 <span className="bg-white rounded px-1 py-0.5 border shadow-sm cursor-pointer hover:bg-blue-50" onClick={() => {setUsername('admin'); setPassword('123')}}>admin</span>
-                 <span className="bg-white rounded px-1 py-0.5 border shadow-sm cursor-pointer hover:bg-blue-50" onClick={() => {setUsername('power'); setPassword('123')}}>power</span>
-                 <span className="bg-white rounded px-1 py-0.5 border shadow-sm cursor-pointer hover:bg-blue-50" onClick={() => {setUsername('user'); setPassword('123')}}>user</span>
-              </div>
-            </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
             <Button type="submit" disabled={loading} className="w-full bg-linear-to-r from-primary to-purple-600 hover:opacity-90 transition-opacity shadow-lg shadow-primary/20">

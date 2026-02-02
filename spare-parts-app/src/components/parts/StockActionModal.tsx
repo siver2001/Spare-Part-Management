@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SparePart, User } from '@/types';
-import { MockService } from '@/services/mockData';
+import { SupabaseService } from '@/services/supabaseService';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -36,7 +36,7 @@ export function StockActionModal({ isOpen, onClose, type, part, onSuccess }: Sto
     try {
       if (quantity <= 0) throw new Error('Quantity must be greater than 0');
 
-      await MockService.createTransaction(type, {
+      await SupabaseService.createTransaction(type, {
         partId: part.id,
         condition,
         quantity,
