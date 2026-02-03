@@ -47,7 +47,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
       className={cn(
         "h-screen flex flex-col z-20 transition-all duration-300 ease-in-out relative",
         "bg-slate-900 text-white shadow-lg", // Deep dark theme
-        collapsed ? "w-0 overflow-hidden border-none" : "w-64 border-r",
+        collapsed ? "w-16 border-r" : "w-64 border-r",
         "hidden md:flex" // Responsive behavior
       )}
     >
