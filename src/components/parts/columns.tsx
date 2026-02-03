@@ -268,7 +268,7 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
            {/* Total */}
            <div className="flex justify-between items-center text-xs border-b border-gray-100 pb-1 mb-1">
              <span className="text-gray-500 font-medium text-[10px] uppercase">Total</span>
-             <span className="font-bold text-gray-900 text-sm">{total}</span>
+             <span className="font-bold text-blue-600 text-sm">{total}</span>
            </div>
            
            {/* OK */}
