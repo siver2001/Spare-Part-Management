@@ -74,6 +74,15 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Sync QR code with Bin Location
+  const handleBinChange = (value: string) => {
+    setFormData(prev => ({
+        ...prev,
+        binLocation: value,
+        qrCodeValue: value
+    }));
+ };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!part) return;
@@ -134,7 +143,7 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
              </div>
              <div className="grid grid-cols-4 items-center gap-4">
                <Label className="text-right">Bin Location</Label>
-               <Input value={formData.binLocation || ''} onChange={(e) => handleChange('binLocation', e.target.value)} className="col-span-3" />
+               <Input value={formData.binLocation || ''} onChange={(e) => handleBinChange(e.target.value)} className="col-span-3" />
              </div>
              
              {/* Stock Section */}
@@ -166,10 +175,6 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
              <div className="grid grid-cols-4 items-center gap-4">
                <Label className="text-right">Lead Time (Days)</Label>
                <Input type="number" value={formData.leadTimeDays || 0} onChange={(e) => handleChange('leadTimeDays', Number(e.target.value))} className="col-span-3" />
-             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-               <Label className="text-right">QR Code</Label>
-               <Input value={formData.qrCodeValue || ''} onChange={(e) => handleChange('qrCodeValue', e.target.value)} className="col-span-3" />
              </div>
              <div className="grid grid-cols-4 items-center gap-4">
                <Label className="text-right">Active</Label>
