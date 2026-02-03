@@ -17,7 +17,8 @@ export const SupabaseService = {
       role: p.role as Role,
       isActive: p.is_active,
       createdAt: p.created_at,
-      password: p.password // Although we should be careful with passwords in profiles
+      password: p.password,
+      imageUrl: p.image_url
     }));
   },
 
@@ -111,6 +112,7 @@ export const SupabaseService = {
       useFor: p.use_for,
       minStock: p.min_stock || 0,
       isActive: p.is_active,
+      imageUrl: p.image_url,
       createdAt: p.created_at,
       updatedAt: p.updated_at
     }));
@@ -145,7 +147,8 @@ export const SupabaseService = {
         cost_center: data.costCenter,
         use_for: data.useFor,
         min_stock: data.minStock,
-        is_active: data.isActive
+        is_active: data.isActive,
+        image_url: data.imageUrl
       }])
       .select()
       .single();
@@ -170,6 +173,7 @@ export const SupabaseService = {
       useFor: newPart.use_for,
       minStock: newPart.min_stock || 0,
       isActive: newPart.is_active,
+      imageUrl: newPart.image_url,
       createdAt: newPart.created_at,
       updatedAt: newPart.updated_at
     };
@@ -193,6 +197,7 @@ export const SupabaseService = {
     if (updates.useFor !== undefined) mappedUpdates.use_for = updates.useFor;
     if (updates.minStock !== undefined) mappedUpdates.min_stock = updates.minStock;
     if (updates.isActive !== undefined) mappedUpdates.is_active = updates.isActive;
+    if (updates.imageUrl !== undefined) mappedUpdates.image_url = updates.imageUrl;
 
     const { data: updatedPart, error } = await supabase
       .from('spare_parts')
@@ -221,6 +226,7 @@ export const SupabaseService = {
       useFor: updatedPart.use_for,
       minStock: updatedPart.min_stock || 0,
       isActive: updatedPart.is_active,
+      imageUrl: updatedPart.image_url,
       createdAt: updatedPart.created_at,
       updatedAt: updatedPart.updated_at
     };
@@ -296,7 +302,8 @@ export const SupabaseService = {
         cost_center: p.costCenter,
         use_for: p.useFor,
         min_stock: p.minStock,
-        is_active: p.isActive
+        is_active: p.isActive,
+        image_url: p.imageUrl
       })));
 
     if (error) throw error;
@@ -424,5 +431,22 @@ export const SupabaseService = {
       performedAt: tx.performed_at,
       createdAt: tx.created_at
     };
+  },
+
+  uploadImage: async (file: Blob, fileName: string): Promise<string> => {
+    const fileExt = 'jpg';
+    const filePath = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('parts')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('parts')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
   }
 };

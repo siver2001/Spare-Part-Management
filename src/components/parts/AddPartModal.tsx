@@ -19,7 +19,7 @@ interface AddPartModalProps {
 
 export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) {
   const [loading, setLoading] = useState(false);
-  const [hasImage, setHasImage] = useState(false); // Mock image state
+  const [imageFile, setImageFile] = useState<Blob | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<Partial<SparePart>>({
@@ -40,14 +40,27 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
      }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-          // Create fake object URL for preview
-          const url = URL.createObjectURL(file);
-          setImagePreview(url);
-          setHasImage(true);
-          toast.success("Image uploaded (mock)");
+          try {
+            setLoading(true);
+            const { compressImage } = await import('@/lib/imageUtils');
+            const compressed = await compressImage(file);
+            
+            // Create preview
+            const url = URL.createObjectURL(compressed);
+            setImagePreview(url);
+            setImageFile(compressed);
+            
+            const sizeKB = Math.round(compressed.size / 1024);
+            toast.success(`Image compressed to ${sizeKB}KB`);
+          } catch (error) {
+            console.error(error);
+            toast.error("Failed to process image");
+          } finally {
+            setLoading(false);
+          }
       }
   };
 
@@ -64,6 +77,13 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
 
     setLoading(true);
     try {
+      let imageUrl = '';
+      
+      // Upload image if exists
+      if (imageFile) {
+        imageUrl = await SupabaseService.uploadImage(imageFile, `${formData.partNumber || 'part'}.jpg`);
+      }
+
       // Check for duplicate Bin Location
       if (formData.binLocation) {
         const existingPart = await SupabaseService.checkBinLocation(formData.binLocation);
@@ -75,9 +95,10 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
              }
         }
       }
+
       await SupabaseService.createPart({
           ...formData,
-          // In a real app, we'd upload the image here and get a URL
+          imageUrl
       } as any);
       
       toast.success('Part created successfully');
@@ -90,6 +111,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
         qrCodeValue: ''
       });
       setImagePreview(null);
+      setImageFile(null);
       onSuccess();
       onClose();
     } catch (error: any) {

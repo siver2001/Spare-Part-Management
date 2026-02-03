@@ -30,6 +30,7 @@ export interface SparePart {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  imageUrl?: string;
 }
 
 export type TransactionType = 'IN' | 'OUT';

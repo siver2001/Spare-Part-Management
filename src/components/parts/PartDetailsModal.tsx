@@ -38,10 +38,15 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Image Section (Placeholder) */}
                 <div className="col-span-1">
-                    <div className="aspect-square rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center flex-col text-gray-400 p-4 text-center">
-                        <Package className="h-16 w-16 mb-2 opacity-20" />
-                        <span className="text-xs">No image available</span>
-                        <span className="text-[10px] mt-1 text-muted-foreground">(Image support coming soon)</span>
+                    <div className="aspect-square rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center flex-col text-gray-400 p-0 text-center relative overflow-hidden">
+                        {part.imageUrl ? (
+                            <img src={part.imageUrl} alt={part.partName} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="p-4 flex flex-col items-center">
+                            <Package className="h-16 w-16 mb-2 opacity-20" />
+                            <span className="text-xs">No image available</span>
+                          </div>
+                        )}
                     </div>
                     {/* QR Code Placeholder */}
                     {/* QR Code Section */}

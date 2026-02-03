@@ -184,7 +184,7 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
   const stockFilterOptions = [
     'Below or Equal to Min',
     'Below Safety',
-    'At Safety Level'
+    'Greater Than or Equal to Safety'
   ];
 
   return [
@@ -245,7 +245,7 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
         return filterValues.some(val => {
             if (val === 'Below or Equal to Min') return ok <= min;
             if (val === 'Below Safety') return ok < safety;
-            if (val === 'At Safety Level') return ok === safety;
+            if (val === 'Greater Than or Equal to Safety') return ok >= safety;
             return false;
         });
     },

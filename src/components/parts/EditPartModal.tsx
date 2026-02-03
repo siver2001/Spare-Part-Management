@@ -20,6 +20,8 @@ interface EditPartModalProps {
 export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModalProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<SparePart>>({});
+  const [imageFile, setImageFile] = useState<Blob | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(part?.imageUrl || null);
 
   useEffect(() => {
     if (part) {
@@ -38,10 +40,35 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
         costCenter: part.costCenter,
         useFor: part.useFor,
         minStock: part.minStock,
-        isActive: part.isActive
+        isActive: part.isActive,
+        imageUrl: part.imageUrl
       });
+      setImagePreview(part.imageUrl || null);
     }
   }, [part]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+        try {
+          setLoading(true);
+          const { compressImage } = await import('@/lib/imageUtils');
+          const compressed = await compressImage(file);
+          
+          const url = URL.createObjectURL(compressed);
+          setImagePreview(url);
+          setImageFile(compressed);
+          
+          const sizeKB = Math.round(compressed.size / 1024);
+          toast.success(`Image compressed to ${sizeKB}KB`);
+        } catch (error) {
+          console.error(error);
+          toast.error("Failed to process image");
+        } finally {
+          setLoading(false);
+        }
+    }
+  };
 
   const handleChange = (field: keyof SparePart, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -53,7 +80,13 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
 
     setLoading(true);
     try {
-      await SupabaseService.updatePart(part.id, formData);
+      let imageUrl = formData.imageUrl;
+
+      if (imageFile) {
+        imageUrl = await SupabaseService.uploadImage(imageFile, `${formData.partNumber || 'part'}.jpg`);
+      }
+
+      await SupabaseService.updatePart(part.id, { ...formData, imageUrl });
       toast.success('Part updated successfully');
       onSuccess();
       onClose();
@@ -145,6 +178,33 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
                 onCheckedChange={(checked: boolean) => handleChange('isActive', checked)} 
                />
              </div>
+
+              {/* Image Section */}
+              <div className="grid grid-cols-4 items-start gap-4 border-t pt-4">
+                <Label className="text-right mt-4">Part Image</Label>
+                <div className="col-span-3 space-y-2">
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl w-32 h-32 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors relative overflow-hidden group">
+                        {imagePreview ? (
+                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="text-center p-2">
+                                <Label htmlFor="edit-image-upload" className="cursor-pointer flex flex-col items-center gap-1">
+                                    <span className="text-2xl text-gray-300">+</span>
+                                    <span className="text-[10px] text-gray-400 font-medium text-center">Upload Image</span>
+                                </Label>
+                            </div>
+                        )}
+                        <Input id="edit-image-upload" type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                        
+                        {imagePreview && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Label htmlFor="edit-image-upload" className="text-white text-[10px] cursor-pointer border border-white px-2 py-1 rounded-md">Change</Label>
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-[10px] text-gray-400 italic">Automatic JPG compression enabled (&lt; 200KB)</p>
+                </div>
+              </div>
           </div>
         </form>
         <DialogFooter className="mt-auto pt-4 border-t">
