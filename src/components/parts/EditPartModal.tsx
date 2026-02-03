@@ -33,6 +33,11 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
         reorderQuantity: part.reorderQuantity,
         leadTimeDays: part.leadTimeDays,
         qrCodeValue: part.qrCodeValue,
+        currentStockOk: part.currentStockOk,
+        currentStockDamaged: part.currentStockDamaged,
+        costCenter: part.costCenter,
+        useFor: part.useFor,
+        minStock: part.minStock,
         isActive: part.isActive
       });
     }
@@ -77,9 +82,14 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
                <Label className="text-right">Part Number</Label>
                <Input value={formData.partNumber || ''} onChange={(e) => handleChange('partNumber', e.target.value)} className="col-span-3" />
              </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-               <Label className="text-right">Description</Label>
-               <Input value={formData.description || ''} onChange={(e) => handleChange('description', e.target.value)} className="col-span-3" />
+             <div className="grid grid-cols-4 items-start gap-4">
+               <Label className="text-right mt-2">Description</Label>
+               <textarea 
+                  value={formData.description || ''} 
+                  onChange={(e) => handleChange('description', e.target.value)} 
+                  className="col-span-3 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Enter part description..."
+                />
              </div>
              <div className="grid grid-cols-4 items-center gap-4">
                <Label className="text-right">Cost Center</Label>
@@ -93,7 +103,18 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
                <Label className="text-right">Bin Location</Label>
                <Input value={formData.binLocation || ''} onChange={(e) => handleChange('binLocation', e.target.value)} className="col-span-3" />
              </div>
+             
+             {/* Stock Section */}
+             <div className="grid grid-cols-4 items-center gap-4 border-t pt-4">
+                <Label className="text-right font-semibold text-green-600">Stock OK</Label>
+                <Input type="number" value={formData.currentStockOk || 0} onChange={(e) => handleChange('currentStockOk', Number(e.target.value))} className="col-span-3 border-green-200 focus:ring-green-500" />
+             </div>
              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right font-semibold text-red-600">Stock DMG</Label>
+                <Input type="number" value={formData.currentStockDamaged || 0} onChange={(e) => handleChange('currentStockDamaged', Number(e.target.value))} className="col-span-3 border-red-200 focus:ring-red-500" />
+             </div>
+
+             <div className="grid grid-cols-4 items-center gap-4 border-t pt-4">
                <Label className="text-right">Min Stock</Label>
                <Input type="number" value={formData.minStock || 0} onChange={(e) => handleChange('minStock', Number(e.target.value))} className="col-span-3" />
              </div>

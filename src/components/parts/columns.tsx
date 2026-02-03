@@ -3,13 +3,21 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { SparePart } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, MoreHorizontal, ArrowDownCircle, ArrowUpCircle, Edit, QrCode, Trash2 } from 'lucide-react';
+import { ArrowUpDown, ArrowDownCircle, ArrowUpCircle, Edit, QrCode, Trash2, Filter } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StockActionModal } from './StockActionModal';
 import { EditPartModal } from './EditPartModal';
 import { PartDetailsModal } from './PartDetailsModal';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+} from '@/components/ui/dropdown-menu';
 
 // Cell Component for Actions to manage ModalState
 const ActionCell = ({ part, refreshData }: { part: SparePart, refreshData: () => void }) => {
@@ -66,11 +74,9 @@ const ActionCell = ({ part, refreshData }: { part: SparePart, refreshData: () =>
              className="h-8 w-8 p-0 ml-1 text-red-400 hover:text-red-700 hover:bg-red-50"
              onClick={() => {
                 if(confirm('Are you sure you want to delete this part? This cannot be undone.')) {
-                    // Call delete service directly (quick inline for now, ideally via function)
                    import('@/services/supabaseService').then(({SupabaseService}) => {
                        SupabaseService.deletePart(part.id).then(() => {
                            refreshData();
-                           // toast.success('Deleted'); // Need to import toast or pass it
                        }).catch(e => alert(e.message));
                    })
                 }
@@ -119,26 +125,77 @@ const ActionCell = ({ part, refreshData }: { part: SparePart, refreshData: () =>
   );
 };
 
-export const createColumns = (refreshData: () => void): ColumnDef<SparePart>[] => [
+// Filter Header Component
+const ColumnHeaderWithFilter = ({ column, title, options, hideSort }: { column: any, title: string, options?: string[], hideSort?: boolean }) => {
+    return (
+        <div className="flex items-center space-x-2">
+            {!hideSort ? (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8 data-[state=open]:bg-accent"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                >
+                    <span>{title}</span>
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            ) : (
+                <span className="text-sm font-medium px-1">{title}</span>
+            )}
+            {options && options.length > 0 && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-transparent">
+                            <Filter className={`h-3 w-3 ${column.getFilterValue() ? 'text-primary fill-primary' : 'text-muted-foreground'}`} />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-48">
+                        <DropdownMenuItem onClick={() => column.setFilterValue(undefined)}>
+                            Clear Filter
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <div className="max-h-60 overflow-y-auto">
+                            {options.map((option) => (
+                                <DropdownMenuCheckboxItem
+                                    key={option}
+                                    checked={(column.getFilterValue() as string[])?.includes(option)}
+                                    onCheckedChange={(checked) => {
+                                        const currentFilter = (column.getFilterValue() as string[]) || [];
+                                        if (checked) {
+                                            column.setFilterValue([...currentFilter, option]);
+                                        } else {
+                                            column.setFilterValue(currentFilter.filter((v: string) => v !== option));
+                                        }
+                                    }}
+                                >
+                                    {option}
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                        </div>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
+        </div>
+    );
+};
+
+export const createColumns = (refreshData: () => void, allData: SparePart[]): ColumnDef<SparePart>[] => {
+  // Predefined stock filter options
+  const stockFilterOptions = [
+    'Below or Equal to Min',
+    'Below Safety',
+    'At Safety Level'
+  ];
+
+  return [
   {
     accessorKey: 'no',
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          No.
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
+    header: ({ column }) => <ColumnHeaderWithFilter column={column} title="No." />,
     cell: ({ row }) => <div className="text-center font-medium">{row.getValue('no')}</div>,
-    enableSorting: true,
   },
   {
     accessorKey: 'qrCodeValue',
-    header: 'QR Code',
+    header: 'QR',
     cell: ({ row }) => {
         const val = row.getValue('qrCodeValue') as string;
         if (!val) return <span className="text-gray-300">-</span>;
@@ -151,7 +208,8 @@ export const createColumns = (refreshData: () => void): ColumnDef<SparePart>[] =
   },
   {
     accessorKey: 'binLocation',
-    header: 'Bin Location',
+    header: ({ column }) => <ColumnHeaderWithFilter column={column} title="Bin Location" hideSort />,
+    enableSorting: false,
   },
   {
     accessorKey: 'partNumber',
@@ -174,38 +232,43 @@ export const createColumns = (refreshData: () => void): ColumnDef<SparePart>[] =
     cell: ({ row }) => <div className="text-center">{row.getValue('costCenter') || '-'}</div>
   },
   {
-    accessorKey: 'useFor',
-    header: 'Use For',
-    cell: ({ row }) => <div className="max-w-[120px] truncate" title={row.getValue('useFor') || ''}>{row.getValue('useFor') || '-'}</div>
-  },
-  {
     id: 'stock',
-    accessorKey: 'currentStockOk', // Use accessor for sorting
-    header: 'Current Stock',
+    accessorKey: 'currentStockOk',
+    header: ({ column }) => <ColumnHeaderWithFilter column={column} title="Stock" options={stockFilterOptions} hideSort />,
+    enableSorting: false,
+    filterFn: (row, id, filterValues: string[]) => {
+        if (!filterValues || filterValues.length === 0) return true;
+        const ok = row.original.currentStockOk;
+        const safety = row.original.safetyStockOk;
+        const min = row.original.minStock;
+
+        return filterValues.some(val => {
+            if (val === 'Below or Equal to Min') return ok <= min;
+            if (val === 'Below Safety') return ok < safety;
+            if (val === 'At Safety Level') return ok === safety;
+            return false;
+        });
+    },
     cell: ({ row }) => {
       const ok = row.original.currentStockOk;
       const safety = row.original.safetyStockOk;
       const min = row.original.minStock;
+      const max = row.original.maxStock;
       
-      // "Safety is for safe quantity, if spare part > that number then ok"
-      const isSafe = ok > safety;
-      const isCritical = ok < min;
+      // Dynamic coloring logic
+      let badgeClass = "bg-green-600 hover:bg-green-700";
+      if (ok <= min) badgeClass = "bg-red-600 hover:bg-red-700 animate-pulse";
+      else if (ok <= safety) badgeClass = "bg-orange-500 hover:bg-orange-600";
+      else if (ok >= max && max > 0) badgeClass = "bg-blue-600 hover:bg-blue-700";
 
       return (
         <div className="flex flex-col items-center">
-           <Badge 
-             className={
-               isCritical ? "bg-red-600 hover:bg-red-700" : 
-               !isSafe ? "bg-yellow-500 hover:bg-yellow-600 text-black" : 
-               "bg-green-600 hover:bg-green-700"
-             }
-           >
+           <Badge className={badgeClass}>
              {ok}
            </Badge>
-           {/* Optional: Show Damaged if > 0 in small text */}
            {row.original.currentStockDamaged > 0 && (
-             <span className="text-[10px] text-red-500 font-semibold mt-1">
-               (+{row.original.currentStockDamaged} DMG)
+             <span className="text-[10px] text-red-500 font-bold mt-0.5 bg-red-50 px-1 rounded shadow-sm border border-red-100">
+               {row.original.currentStockDamaged} DMG
              </span>
            )}
         </div>
@@ -215,31 +278,31 @@ export const createColumns = (refreshData: () => void): ColumnDef<SparePart>[] =
   {
     accessorKey: 'safetyStockOk',
     header: 'Safety',
-    cell: ({ row }) => <div className="text-center text-gray-600">{row.getValue('safetyStockOk')}</div>
+    cell: ({ row }) => <div className="text-center font-bold text-orange-600 bg-orange-50 py-1 rounded border border-orange-100">{row.getValue('safetyStockOk')}</div>
   },
   {
     accessorKey: 'maxStock',
     header: 'Max',
-    cell: ({ row }) => <div className="text-center text-gray-500">{row.getValue('maxStock')}</div>
+    cell: ({ row }) => <div className="text-center font-bold text-blue-600 bg-blue-50 py-1 rounded border border-blue-100">{row.getValue('maxStock')}</div>
   },
   {
     accessorKey: 'minStock',
     header: 'Min',
-    cell: ({ row }) => <div className="text-center text-gray-500">{row.getValue('minStock')}</div>
+    cell: ({ row }) => <div className="text-center font-bold text-red-600 bg-red-50 py-1 rounded border border-red-100">{row.getValue('minStock')}</div>
   },
   {
     accessorKey: 'reorderQuantity',
     header: 'Reorder',
-    cell: ({ row }) => <div className="text-center text-gray-500">{row.getValue('reorderQuantity')}</div>
+    cell: ({ row }) => <div className="text-center font-bold text-purple-600 bg-purple-50 py-1 rounded border border-purple-100">{row.getValue('reorderQuantity')}</div>
   },
   {
     accessorKey: 'leadTimeDays',
     header: 'Lead Time',
-    cell: ({ row }) => <div className="text-center text-gray-500">{row.getValue('leadTimeDays')}</div>
+    cell: ({ row }) => <div className="text-center font-bold text-slate-600 bg-slate-100 py-1 rounded border border-slate-200">{row.getValue('leadTimeDays')}d</div>
   },
   {
     id: 'actions',
     header: 'Actions',
     cell: ({ row }) => <ActionCell part={row.original} refreshData={refreshData} />,
   },
-];
+];};

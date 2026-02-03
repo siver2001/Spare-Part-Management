@@ -20,12 +20,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    // Check local storage for session
-    const storedUser = localStorage.getItem('session_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const verifySession = async () => {
+      const storedUser = localStorage.getItem('session_user');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        try {
+          // Verify user still exists in DB
+          const users = await SupabaseService.getUsers();
+          const exists = users.find(u => u.id === parsedUser.id);
+          if (exists) {
+            setUser(exists);
+            localStorage.setItem('session_user', JSON.stringify(exists));
+          } else {
+            // User no longer exists (DB reset?)
+            localStorage.removeItem('session_user');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('Session verification failed:', error);
+          setUser(null);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    verifySession();
   }, []);
 
   const login = async (username: string) => {

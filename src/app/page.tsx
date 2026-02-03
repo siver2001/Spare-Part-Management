@@ -37,7 +37,7 @@ export default function Home() {
     refreshData();
   }, []);
 
-  const columns = createColumns(refreshData);
+  const columns = createColumns(refreshData, data);
 
   return (
     <ProtectedLayout>

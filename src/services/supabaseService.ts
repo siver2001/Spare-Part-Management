@@ -381,6 +381,10 @@ export const SupabaseService = {
     // 4. Create Transaction Record
     const orderNo = `${type}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
     
+    console.log('--- DEBUG TRANSACTION ---');
+    console.log('UserID being sent:', data.performedBy.id);
+    console.log('Username:', (data.performedBy as any).username);
+    
     const { data: tx, error: txError } = await supabase
       .from('transactions')
       .insert([{
@@ -388,14 +392,15 @@ export const SupabaseService = {
         type,
         part_id: data.partId,
         part_name_snapshot: part.part_name,
-        part_number_snapshot: part.part_number,
+        part_number_snapshot: part.part_number || '',
         part_condition: data.condition,
         quantity: data.quantity,
-        reason: data.reason,
-        work_order_no: data.workOrderNo,
-        inspector_name: data.inspectorName,
+        reason: data.reason || '',
+        work_order_no: data.workOrderNo || '',
+        inspector_name: data.inspectorName || '',
         performed_by_user_id: data.performedBy.id,
-        performed_by_display_name_snapshot: data.performedBy.displayName
+        performed_by_display_name_snapshot: data.performedBy.displayName,
+        performed_at: new Date().toISOString()
       }])
       .select()
       .single();
