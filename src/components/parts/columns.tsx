@@ -251,6 +251,8 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
     },
     cell: ({ row }) => {
       const ok = row.original.currentStockOk;
+      const damaged = row.original.currentStockDamaged;
+      const total = ok + damaged;
       const safety = row.original.safetyStockOk;
       const min = row.original.minStock;
       const max = row.original.maxStock;
@@ -262,15 +264,28 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
       else if (ok >= max && max > 0) badgeClass = "bg-blue-600 hover:bg-blue-700";
 
       return (
-        <div className="flex flex-col items-center">
-           <Badge className={badgeClass}>
-             {ok}
-           </Badge>
-           {row.original.currentStockDamaged > 0 && (
-             <span className="text-[10px] text-red-500 font-bold mt-0.5 bg-red-50 px-1 rounded shadow-sm border border-red-100">
-               {row.original.currentStockDamaged} DMG
+        <div className="flex flex-col gap-1 w-[110px]">
+           {/* Total */}
+           <div className="flex justify-between items-center text-xs border-b border-gray-100 pb-1 mb-1">
+             <span className="text-gray-500 font-medium text-[10px] uppercase">Total</span>
+             <span className="font-bold text-gray-900 text-sm">{total}</span>
+           </div>
+           
+           {/* OK */}
+           <div className="flex justify-between items-center">
+             <span className="text-[10px] text-gray-500 font-bold mr-2">OK</span>
+             <Badge className={`h-5 px-2 min-w-[40px] justify-center ${badgeClass}`}>
+               {ok}
+             </Badge>
+           </div>
+
+           {/* DMG */}
+           <div className="flex justify-between items-center">
+             <span className="text-[10px] text-gray-500 font-bold">DMG</span>
+             <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 min-w-[40px] text-center">
+               {damaged}
              </span>
-           )}
+           </div>
         </div>
       );
     }
