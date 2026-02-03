@@ -24,7 +24,7 @@ const ActionCell = ({ part, refreshData }: { part: SparePart, refreshData: () =>
   const [modalOpen, setModalOpen] = useState<'IN' | 'OUT' | 'EDIT' | 'VIEW' | null>(null);
   const { user } = useAuth();
 
-  const canEdit = user && ['ADMIN', 'POWER_USER'].includes(user.role);
+  const canEdit = user && (user.role === 'ADMIN' || user.role === 'POWER_USER');
 
   return (
     <>

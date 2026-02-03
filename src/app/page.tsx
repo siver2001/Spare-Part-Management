@@ -18,7 +18,7 @@ export default function Home() {
   const { user } = useAuth();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
-  const canAdd = !!user; // All logged in users can Add Part
+  const canAdd = user && (user.role === 'ADMIN' || user.role === 'POWER_USER');
 
   // Function to refresh data, passed to actions
   const refreshData = async () => {
@@ -71,7 +71,9 @@ export default function Home() {
                </div>
             )}
             
-            <ExcelActions data={data} onImportSuccess={refreshData} />
+            {user && (user.role === 'ADMIN' || user.role === 'POWER_USER') && (
+              <ExcelActions data={data} onImportSuccess={refreshData} />
+            )}
             
             {canAdd && (
                 <Button onClick={() => setIsAddModalOpen(true)} className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 shrink-0">

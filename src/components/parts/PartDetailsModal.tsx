@@ -79,7 +79,7 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                     {/* Description */}
                     <div>
                         <h4 className="text-sm font-semibold text-gray-900 mb-1">Description</h4>
-                        <div className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-md border min-h-[100px] whitespace-pre-wrap break-words">
+                        <div className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-md border min-h-[100px] whitespace-pre-wrap wrap-break-word">
                             {part.description || 'No description provided.'}
                         </div>
                     </div>
