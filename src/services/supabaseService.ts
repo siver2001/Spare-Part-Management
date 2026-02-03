@@ -448,5 +448,21 @@ export const SupabaseService = {
       .getPublicUrl(filePath);
 
     return data.publicUrl;
+  },
+
+  deleteAllImages: async (): Promise<void> => {
+    try {
+        const { data: list, error: listError } = await supabase.storage.from('parts').list();
+        if (listError) throw listError;
+        
+        if (list && list.length > 0) {
+            const filesToRemove = list.map(x => x.name);
+            const { error: removeError } = await supabase.storage.from('parts').remove(filesToRemove);
+            if (removeError) throw removeError;
+        }
+    } catch (error) {
+        console.error("Error deleting images:", error);
+        // We don't throw here to avoid blocking the main overwrite process if storage cleanup fails
+    }
   }
 };

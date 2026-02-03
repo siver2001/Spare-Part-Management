@@ -257,6 +257,7 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
   const executeOverwrite = async () => {
     setLoading(true);
     try {
+      await SupabaseService.deleteAllImages();
       await SupabaseService.deleteAllParts();
       await SupabaseService.bulkCreateParts(pendingData);
       
