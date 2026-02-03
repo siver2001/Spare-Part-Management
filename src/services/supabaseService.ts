@@ -91,7 +91,8 @@ export const SupabaseService = {
     const { data, error } = await supabase
       .from('spare_parts')
       .select('*')
-      .order('no', { ascending: true });
+      .order('bin_location', { ascending: true })
+      .order('part_name', { ascending: true });
 
     if (error) throw error;
     return (data || []).map(p => ({
