@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Package, History, Users, Shield, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
-
-  // Toggle handlers
-  const toggleSidebar = () => setCollapsed(!collapsed);
 
   const links = [
     {
@@ -44,21 +45,22 @@ export function AppSidebar() {
   return (
     <div 
       className={cn(
-        "border-r h-screen flex flex-col hidden md:flex shadow-2xl z-20 transition-all duration-300 ease-in-out relative",
-        "bg-linear-to-b from-slate-900 to-slate-800 text-white", // Vibrant dark theme
-        collapsed ? "w-20" : "w-64"
+        "h-screen flex flex-col z-20 transition-all duration-300 ease-in-out relative",
+        "bg-slate-900 text-white shadow-lg", // Deep dark theme
+        collapsed ? "w-0 overflow-hidden border-none" : "w-64 border-r",
+        "hidden md:flex" // Responsive behavior
       )}
     >
       {/* Header */}
       <div className={cn(
-        "h-16 flex items-center border-b border-white/10 transition-all duration-300",
-        collapsed ? "justify-center px-0" : "px-6"
+        "h-16 flex items-center border-b border-white/5 transition-all duration-300",
+        collapsed ? "justify-center px-0" : "px-4"
       )}>
-        <div className="h-9 w-9 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30 shrink-0">
-            <Shield className="h-5 w-5 text-white" />
+        <div className="h-8 w-8 rounded-lg bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
+            <Shield className="h-4 w-4 text-white" />
         </div>
         {!collapsed && (
-          <h1 className="ml-3 text-lg font-bold bg-linear-to-r from-white to-gray-400 bg-clip-text text-transparent whitespace-nowrap overflow-hidden">
+          <h1 className="ml-3 text-base font-bold text-white whitespace-nowrap overflow-hidden">
             SpareManager
           </h1>
         )}
@@ -127,8 +129,8 @@ export function AppSidebar() {
 
       {/* Collapse Toggle Button - Absolute positioned on border */}
       <button 
-        onClick={toggleSidebar}
-        className="absolute -right-3 top-20 bg-white dark:bg-slate-800 text-slate-800 dark:text-gray-200 border border-slate-200 dark:border-slate-700 h-6 w-6 rounded-full flex items-center justify-center shadow-md hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors z-30 ring-0 focus:outline-none"
+        onClick={onToggle}
+        className="absolute -right-3 top-8 bg-white dark:bg-slate-800 text-slate-800 dark:text-gray-200 border border-slate-200 dark:border-slate-700 h-6 w-6 rounded-full flex items-center justify-center shadow-md hover:bg-gray-100 dark:hover:bg-slate-700 transition-all z-30 ring-0 focus:outline-none"
       >
         {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
       </button>

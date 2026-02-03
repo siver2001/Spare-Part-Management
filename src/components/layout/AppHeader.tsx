@@ -11,16 +11,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 
-export function AppHeader() {
+export function AppHeader({ onToggle }: { onToggle: () => void }) {
   const { user, logout } = useAuth();
 
   if (!user) return null;
 
   return (
-    <header className="h-16 border-b flex items-center justify-between px-6 bg-white">
+    <header className="h-16 border-b flex items-center justify-between px-6 bg-white sticky top-0 z-10 shrink-0">
       <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onToggle} className="text-gray-500">
+           <Menu className="h-5 w-5" />
+        </Button>
         {/* Mobile menu trigger could go here */}
         <h2 className="text-lg font-semibold text-gray-800">
           Welcome, {user.displayName}
