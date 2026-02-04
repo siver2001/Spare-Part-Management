@@ -35,12 +35,13 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
       // Define columns
       worksheet.columns = [
         { header: 'NO.', key: 'no', width: 6 },
-        { header: 'QR Image', key: 'qr_image', width: 12 },
+        { header: 'Part Image', key: 'part_image', width: 20 },
+        { header: 'QR Image', key: 'qr_image', width: 18 },
         { header: 'QR Code Value', key: 'qrCodeValue', width: 15 },
         { header: 'Bin Location', key: 'binLocation', width: 15 },
         { header: 'Part Number', key: 'partNumber', width: 20 },
         { header: 'Part Name', key: 'partName', width: 30 },
-        { header: 'Description', key: 'description', width: 40 },
+        { header: 'Description', key: 'description', width: 60 }, // Fixed wide width for description
         { header: 'Cost Center', key: 'costCenter', width: 15 },
         { header: 'Use For', key: 'useFor', width: 20 },
         { header: 'Current Stock', key: 'currentStockOk', width: 15 },
@@ -61,12 +62,11 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
         };
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
       });
-      worksheet.getRow(1).height = 25;
+      worksheet.getRow(1).height = 30;
 
       // Add Data
       for (let i = 0; i < data.length; i++) {
         const p = data[i];
-        const rowIndex = i + 2;
         const row = worksheet.addRow({
           no: p.no || i + 1,
           qrCodeValue: p.qrCodeValue || '',
@@ -84,10 +84,36 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
           leadTimeDays: p.leadTimeDays || 0,
         });
 
-        row.height = 70; // High enough for QR code
-        row.alignment = { vertical: 'middle', wrapText: true };
+        // Increased height calculation to ensure no text is cut off
+        // 40 chars per line is safer for width 60 to account for padding/font
+        const descLines = Math.max(1, Math.ceil((p.description?.length || 0) / 40)); 
+        row.height = Math.max(95, descLines * 20 + 5); 
+        row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
 
-        // Add QR Image
+        // 1. Add Part Image if available (Column B, index 1)
+        if (p.imageUrl) {
+          try {
+             const response = await fetch(p.imageUrl);
+             if (!response.ok) throw new Error('Image not found');
+             const blob = await response.blob();
+             const arrayBuffer = await blob.arrayBuffer();
+             
+             const imageId = workbook.addImage({
+                buffer: arrayBuffer,
+                extension: 'jpeg',
+             });
+             
+             worksheet.addImage(imageId, {
+                tl: { col: 1.1, row: i + 1.1 }, // Centering slightly in col 1
+                ext: { width: 100, height: 100 },
+                editAs: 'oneCell'
+             });
+          } catch (err) {
+             console.error('Part Image Export Error:', err);
+          }
+        }
+
+        // 2. Add QR Image (Column C, index 2)
         if (p.qrCodeValue) {
           try {
             const qrDataUrl = await QRCode.toDataURL(p.qrCodeValue, { 
@@ -100,10 +126,9 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
               extension: 'png',
             });
             
-            // Calculate center of the cell
             worksheet.addImage(imageId, {
-              tl: { col: 1.1, row: rowIndex - 0.9 },
-              ext: { width: 80, height: 80 },
+              tl: { col: 2.15, row: i + 1.15 }, // Centering in col 2
+              ext: { width: 90, height: 90 },
               editAs: 'oneCell'
             });
           } catch (err) {
@@ -112,9 +137,9 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
         }
       }
 
-      // Auto-adjust column widths
+      // Auto-adjust column widths (except for fixed image and description columns)
       worksheet.columns.forEach(column => {
-        if (column.key === 'qr_image') return;
+        if (['part_image', 'qr_image', 'description'].includes(column.key as string)) return;
         
         let maxLength = column.header ? column.header.toString().length : 10;
         data.forEach(p => {
@@ -131,7 +156,7 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       saveAs(blob, `Spare_Parts_Inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
       
-      toast.success('Inventory exported successfully with QR codes');
+      toast.success('Inventory exported successfully');
     } catch (error: any) {
       console.error('Export error:', error);
       toast.error('Failed to export data: ' + error.message);

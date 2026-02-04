@@ -464,6 +464,25 @@ export const SupabaseService = {
     return data.publicUrl;
   },
 
+  deleteImage: async (url: string): Promise<void> => {
+    try {
+      if (!url) return;
+      // Extract file path from public URL
+      // URL format: .../storage/v1/object/public/parts/filename.jpg
+      const parts = url.split('/parts/');
+      if (parts.length < 2) return;
+      const filePath = parts[1];
+
+      const { error } = await supabase.storage
+        .from('parts')
+        .remove([filePath]);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error deleting image:", error);
+    }
+  },
+
   deleteAllImages: async (): Promise<void> => {
     try {
         const { data: list, error: listError } = await supabase.storage.from('parts').list();

@@ -15,18 +15,18 @@ import { ImportGoodsReport } from "@/components/parts/ImportGoodsReport";
 
 export default function Home() {
   const [data, setData] = useState<SparePart[]>([]);
+  const [filteredData, setFilteredData] = useState<SparePart[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
   const canAdd = user && (user.role === 'ADMIN' || user.role === 'POWER_USER');
 
-  // Function to refresh data, passed to actions
   const refreshData = async () => {
-    // Keep loading state minimal for better UX, or show spinner
     try {
       const parts = await SupabaseService.getParts();
       setData(parts);
+      setFilteredData(parts);
     } catch (error) {
       console.error(error);
     } finally {
@@ -75,7 +75,7 @@ export default function Home() {
             {user && (user.role === 'ADMIN' || user.role === 'POWER_USER') && (
               <>
                 <ImportGoodsReport existingParts={data} onImportSuccess={refreshData} />
-                <ExcelActions data={data} onImportSuccess={refreshData} />
+                <ExcelActions data={filteredData} onImportSuccess={refreshData} />
               </>
             )}
             
@@ -94,7 +94,7 @@ export default function Home() {
                 <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
              </div>
            ) : (
-              <DataTable columns={columns} data={data} searchKey="partName" onSearch={() => {}} />
+              <DataTable columns={columns} data={data} searchKey="partName" onFilteredDataChange={setFilteredData} />
            )}
         </div>
       </div>

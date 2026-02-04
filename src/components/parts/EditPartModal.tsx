@@ -105,12 +105,19 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
     setLoading(true);
     try {
       let imageUrl = formData.imageUrl;
+      const oldImageUrl = part.imageUrl;
 
       if (imageFile) {
         imageUrl = await SupabaseService.uploadImage(imageFile, `${formData.partNumber || 'part'}.jpg`);
       }
 
       await SupabaseService.updatePart(part.id, { ...formData, imageUrl });
+      
+      // Cleanup old image if it was replaced
+      if (imageFile && oldImageUrl && oldImageUrl !== imageUrl) {
+        await SupabaseService.deleteImage(oldImageUrl);
+      }
+
       toast.success('Part updated successfully');
       onSuccess();
       onClose();

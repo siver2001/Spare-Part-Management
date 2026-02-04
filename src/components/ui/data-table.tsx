@@ -28,13 +28,15 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   searchKey?: string;
   onSearch?: (value: string) => void;
+  onFilteredDataChange?: (data: TData[]) => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   searchKey,
-  onSearch
+  onSearch,
+  onFilteredDataChange
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [isScannerOpen, setIsScannerOpen] = React.useState(false);
@@ -51,6 +53,13 @@ export function DataTable<TData, TValue>({
     onGlobalFilterChange: setGlobalFilter,
     autoResetPageIndex: false,
   });
+
+  React.useEffect(() => {
+    if (onFilteredDataChange) {
+      const filteredRows = table.getFilteredRowModel().rows.map(row => row.original);
+      onFilteredDataChange(filteredRows);
+    }
+  }, [table.getFilteredRowModel().rows, onFilteredDataChange]);
 
   return (
     <div>

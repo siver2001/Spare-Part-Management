@@ -36,6 +36,8 @@ interface ReportItem {
   partNumber?: string;
   binLocation?: string;
   description?: string;
+  imageUrl?: string;
+  overwriteExisting?: boolean;
 }
 
 export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGoodsReportProps) {
@@ -72,7 +74,6 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
         const keywords = ['Item name', 'Quantity accepted', 'Tên hàng hoá dịch vụ', 'số lượng chấp nhận'];
         let headerRowIndex = -1;
 
-        // Search for the header row
         for (let i = 0; i < Math.min(rows.length, 20); i++) {
           const row = rows[i];
           if (row && Array.isArray(row)) {
@@ -100,7 +101,8 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
           qty: ['số lượng chấp nhận / Quantity accepted', 'Quantity accepted', 'Số lượng'],
           cc: ['sử dụng cho phòng ban / Used for cost center', 'Cost center', 'Phòng ban'],
           pn: ['Part Number', 'Part Code', 'Mã hàng', 'Mã số', 'Item Code'],
-          desc: ['Description', 'Mô tả', 'Ghi chú', 'Note', 'Thông số']
+          desc: ['Description', 'Mô tả', 'Ghi chú', 'Note', 'Thông số'],
+          img: ['Image', 'Ảnh', 'Link ảnh', 'URL', 'Hình ảnh']
         };
 
         const getColumnIndex = (targetKeywords: string[]) => {
@@ -114,6 +116,7 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
         const ccIdx = getColumnIndex(mapping.cc);
         const pnIdx = getColumnIndex(mapping.pn);
         const descIdx = getColumnIndex(mapping.desc);
+        const imgIdx = getColumnIndex(mapping.img);
 
         if (nameIdx === -1 || qtyIdx === -1) {
           toast.error('Required columns (Item Name or Quantity) not found');
@@ -129,10 +132,10 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
           const cc = ccIdx !== -1 ? String(row[ccIdx] || '').trim() : '';
           const pn = pnIdx !== -1 ? String(row[pnIdx] || '').trim() : '';
           const desc = descIdx !== -1 ? String(row[descIdx] || '').trim() : '';
+          const img = imgIdx !== -1 ? String(row[imgIdx] || '').trim() : '';
 
           if (!name || isNaN(qty) || name.toLowerCase().includes('tổng cộng') || name.toLowerCase().includes('total')) return;
 
-          // Standardize name for matching
           const standardizedName = name.toLowerCase().replace(/\s+/g, ' ').trim();
           const matched = existingParts.find(p => p.partName.toLowerCase().replace(/\s+/g, ' ').trim() === standardizedName);
           
@@ -145,7 +148,8 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
               quantity: existing.quantity + qty,
               costCenter: existing.costCenter || cc,
               partNumber: existing.partNumber || pn,
-              description: existing.description || desc
+              description: existing.description || desc,
+              imageUrl: existing.imageUrl || img
             });
           } else {
             itemMap.set(key, {
@@ -156,7 +160,9 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
               selected: true,
               partNumber: pn,
               binLocation: matched ? matched.binLocation : '',
-              description: desc
+              description: desc,
+              imageUrl: img,
+              overwriteExisting: false
             });
           }
         });
@@ -183,7 +189,7 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
     const selectedNewItems = reportData.filter(item => !item.matchedPart && item.selected);
     const selectedMatchedItems = reportData.filter(item => item.matchedPart && item.selected);
 
-    // 1. Pre-validation (Part Number is now optional)
+    // 1. Pre-validation
     const invalidItems = selectedNewItems.filter(i => !i.binLocation?.trim());
     if (invalidItems.length > 0) {
       toast.error(`Please provide Bin Location for: ${invalidItems[0].partName}${invalidItems.length > 1 ? ` and ${invalidItems.length - 1} others` : ''}`);
@@ -210,9 +216,11 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
         }
       }
 
-      // 3. Process matched items (Stock Update)
+      // 3. Process matched items
       for (const item of selectedMatchedItems) {
          const part = item.matchedPart!;
+         const oldImageUrl = part.imageUrl;
+
          await SupabaseService.createTransaction('IN', {
             partId: part.id,
             condition: 'OK',
@@ -221,25 +229,42 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
             reason: 'Import Goods Report'
          });
 
-         if (!part.costCenter && item.costCenter) {
+         if (item.overwriteExisting) {
+            const updates: Partial<SparePart> = {
+                partNumber: item.partNumber || part.partNumber,
+                costCenter: item.costCenter || part.costCenter,
+                description: item.description || part.description,
+                imageUrl: item.imageUrl || part.imageUrl
+            };
+            await SupabaseService.updatePart(part.id, updates);
+
+            if (item.imageUrl && oldImageUrl && oldImageUrl !== item.imageUrl) {
+               await SupabaseService.deleteImage(oldImageUrl);
+            }
+         } else if (!part.costCenter && item.costCenter) {
             await SupabaseService.updatePart(part.id, { costCenter: item.costCenter });
          }
       }
 
-      // 4. Process new items (Create or Update Empty Bin)
+      // 4. Process new items
       for (const item of selectedNewItems) {
           const binLoc = item.binLocation!.trim();
           const existingBin = await SupabaseService.checkBinLocation(binLoc);
 
           if (existingBin && (!existingBin.partName || existingBin.partName.trim() === '')) {
+             const oldImg = existingBin.imageUrl;
              await SupabaseService.updatePart(existingBin.id, {
                 partName: item.partName,
                 partNumber: item.partNumber || '',
                 currentStockOk: item.quantity,
                 costCenter: item.costCenter,
                 isActive: true,
-                description: item.description || 'Updated via Goods Report (Empty Bin filled)'
+                description: item.description || 'Updated via Goods Report (Empty Bin filled)',
+                imageUrl: item.imageUrl || oldImg
              });
+             if (item.imageUrl && oldImg && oldImg !== item.imageUrl) {
+                await SupabaseService.deleteImage(oldImg);
+             }
           } else {
              await SupabaseService.createPart({
                 partName: item.partName,
@@ -255,7 +280,8 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
                 minStock: 0,
                 reorderQuantity: 10,
                 leadTimeDays: 7,
-                description: item.description || 'Added via Goods Report'
+                description: item.description || 'Added via Goods Report',
+                imageUrl: item.imageUrl
              } as any);
           }
       }
@@ -310,13 +336,10 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto space-y-6 py-4">
-            {/* Matches Section */}
             {matchedItems.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-green-700 font-bold bg-green-50 p-3 rounded-xl border border-green-100">
-                   <div className="bg-green-100 p-1.5 rounded-full">
-                      <CheckCircle2 className="h-4 w-4" />
-                   </div>
+                   <div className="bg-green-100 p-1.5 rounded-full"><CheckCircle2 className="h-4 w-4" /></div>
                    Existing Parts found ({matchedItems.length}) - Stock will be increased
                 </div>
                 <div className="border rounded-xl overflow-hidden shadow-sm">
@@ -328,11 +351,7 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
                             checked={matchedItems.length > 0 && matchedItems.every(i => i.selected)}
                              onCheckedChange={(checked) => {
                                const newData = [...reportData];
-                               newData.forEach((i, idx) => { 
-                                 if(i.matchedPart) {
-                                   newData[idx] = { ...i, selected: !!checked };
-                                 }
-                               });
+                               newData.forEach((i, idx) => { if(i.matchedPart) newData[idx] = { ...i, selected: !!checked }; });
                                setReportData(newData);
                              }}
                           />
@@ -341,13 +360,13 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
                         <th className="text-center p-3 text-green-900 font-semibold uppercase text-[10px] tracking-wider">Add Qty</th>
                         <th className="text-left p-3 text-green-900 font-semibold uppercase text-[10px] tracking-wider">Cost Center</th>
                         <th className="text-left p-3 text-green-900 font-semibold uppercase text-[10px] tracking-wider">Existing Bin</th>
+                        <th className="text-center p-3 text-green-900 font-semibold uppercase text-[10px] tracking-wider">Overwrite</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {matchedItems.map((item, idx) => {
-                        const matches = existingParts.filter(p => p.partName.toLowerCase() === item.partName.toLowerCase());
+                        const matches = existingParts.filter(p => p.partName.toLowerCase().replace(/\s+/g, ' ').trim() === item.partName.toLowerCase().replace(/\s+/g, ' ').trim());
                         const hasMultipleBins = matches.length > 1;
-
                         return (
                           <tr key={idx} className={`transition-colors ${item.selected ? 'bg-white' : 'bg-gray-50/30'}`}>
                             <td className="p-3 text-center">
@@ -356,59 +375,40 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
                                  onCheckedChange={(checked) => {
                                   const newData = [...reportData];
                                   const itemIdx = reportData.indexOf(item);
-                                  if (itemIdx !== -1) {
-                                    newData[itemIdx] = { ...item, selected: !!checked };
-                                    setReportData(newData);
-                                  }
+                                  if (itemIdx !== -1) { newData[itemIdx] = { ...item, selected: !!checked }; setReportData(newData); }
                                 }}
                               />
                             </td>
                             <td className="p-3">
                               <p className="font-semibold text-gray-900">{item.partName}</p>
-                              <p className="text-[10px] text-gray-400 mt-0.5">
-                                {hasMultipleBins ? (
-                                  <span className="text-orange-600 font-medium flex items-center gap-1">
-                                    <AlertTriangle className="h-2 w-2" /> Multiple bins available
-                                  </span>
-                                ) : (
-                                  item.matchedPart?.partNumber
-                                )}
-                              </p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">{hasMultipleBins ? <span className="text-orange-600 font-medium">Multiple bins available</span> : item.matchedPart?.partNumber}</p>
                             </td>
-                            <td className="p-3 text-center">
-                              <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">
-                                +{item.quantity}
-                              </span>
-                            </td>
+                            <td className="p-3 text-center"><span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">+{item.quantity}</span></td>
                             <td className="p-3 text-gray-600 font-medium">{item.costCenter || item.matchedPart?.costCenter || '-'}</td>
                             <td className="p-3">
                               {hasMultipleBins ? (
                                 <select 
-                                  disabled={!item.selected}
-                                  className="text-xs border rounded px-2 py-1 bg-white font-mono uppercase focus:ring-2 focus:ring-green-500 outline-none disabled:opacity-50"
+                                  className="text-xs border rounded px-1"
                                   value={item.matchedPart?.id}
                                   onChange={(e) => {
-                                    const selectedId = e.target.value;
-                                    const selectedPart = matches.find(p => p.id === selectedId);
+                                    const selectedPart = matches.find(p => p.id === e.target.value);
                                     const newData = [...reportData];
                                     const itemIdx = reportData.indexOf(item);
-                                    if (itemIdx !== -1) {
-                                      newData[itemIdx].matchedPart = selectedPart;
-                                      setReportData(newData);
-                                    }
+                                    if (itemIdx !== -1) { newData[itemIdx].matchedPart = selectedPart; setReportData(newData); }
                                   }}
                                 >
-                                  {matches.map(m => (
-                                    <option key={m.id} value={m.id}>
-                                      {m.binLocation} (Stock: {m.currentStockOk})
-                                    </option>
-                                  ))}
+                                  {matches.map(m => <option key={m.id} value={m.id}>{m.binLocation}</option>)}
                                 </select>
                               ) : (
-                                <Badge variant="outline" className="font-mono bg-gray-50 uppercase">
-                                  {item.matchedPart?.binLocation}
-                                </Badge>
+                                <Badge variant="outline">{item.matchedPart?.binLocation}</Badge>
                               )}
+                            </td>
+                            <td className="p-3 text-center">
+                               <Checkbox checked={item.overwriteExisting} onCheckedChange={(checked) => {
+                                  const newData = [...reportData];
+                                  const itemIdx = reportData.indexOf(item);
+                                  if (itemIdx !== -1) { newData[itemIdx] = { ...item, overwriteExisting: !!checked }; setReportData(newData); }
+                               }} />
                             </td>
                           </tr>
                         );
@@ -419,12 +419,10 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
               </div>
             )}
 
-            {/* New Items Section */}
             {newItems.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-orange-700 font-semibold bg-orange-50 p-2 rounded-md">
-                   <AlertTriangle className="h-4 w-4" />
-                   New Parts needed ({newItems.length}) - Select and provide details
+                   <AlertTriangle className="h-4 w-4" /> New Parts needed ({newItems.length})
                 </div>
                 <div className="border rounded-xl overflow-hidden shadow-sm">
                   <table className="w-full text-sm">
@@ -435,90 +433,50 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
                             checked={newItems.length > 0 && newItems.every(i => i.selected)}
                              onCheckedChange={(checked) => {
                                const newData = [...reportData];
-                               newData.forEach((i, idx) => { 
-                                 if(!i.matchedPart) {
-                                   newData[idx] = { ...i, selected: !!checked };
-                                 }
-                               });
+                               newData.forEach((i, idx) => { if(!i.matchedPart) newData[idx] = { ...i, selected: !!checked }; });
                                setReportData(newData);
                              }}
                           />
                         </th>
-                        <th className="text-left p-3 text-indigo-900 font-semibold uppercase text-[10px] tracking-wider">Item Name</th>
-                        <th className="w-20 p-3 text-center text-indigo-900 font-semibold uppercase text-[10px] tracking-wider">Qty</th>
-                        <th className="p-3 text-indigo-900 font-semibold uppercase text-[10px] tracking-wider">Part Number</th>
-                        <th className="p-3 text-indigo-900 font-semibold uppercase text-[10px] tracking-wider">Bin Location</th>
-                        <th className="p-3 text-indigo-900 font-semibold uppercase text-[10px] tracking-wider">Description</th>
+                        <th className="text-left p-3">Item Name</th>
+                        <th className="w-20 p-3 text-center">Qty</th>
+                        <th className="p-3">Part Number</th>
+                        <th className="p-3">Bin</th>
+                        <th className="p-3">Description</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {newItems.map((item, idx) => (
                         <tr key={idx} className={`transition-colors ${item.selected ? 'bg-white' : 'bg-gray-50/30'}`}>
                           <td className="p-3 text-center">
-                            <Checkbox 
-                              checked={item.selected} 
-                               onCheckedChange={(checked) => {
+                            <Checkbox checked={item.selected} onCheckedChange={(checked) => {
                                 const newData = [...reportData];
                                 const itemIdx = reportData.indexOf(item);
-                                if (itemIdx !== -1) {
-                                  newData[itemIdx] = { ...item, selected: !!checked };
-                                  setReportData(newData);
-                                }
-                              }}
-                            />
+                                if (itemIdx !== -1) { newData[itemIdx] = { ...item, selected: !!checked }; setReportData(newData); }
+                            }} />
+                          </td>
+                          <td className="p-3"><p className="font-semibold">{item.partName}</p></td>
+                          <td className="p-3 text-center font-bold">{item.quantity}</td>
+                          <td className="p-3">
+                             <Input className="h-8 text-xs" value={item.partNumber} onChange={(e) => {
+                                const newData = [...reportData];
+                                const itemIdx = reportData.indexOf(item);
+                                if (itemIdx !== -1) { newData[itemIdx] = { ...item, partNumber: e.target.value }; setReportData(newData); }
+                             }} />
                           </td>
                           <td className="p-3">
-                            <p className="font-semibold text-gray-900">{item.partName}</p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">{item.costCenter}</p>
-                          </td>
-                          <td className="p-3 text-center font-bold text-gray-700">{item.quantity}</td>
-                          <td className="p-3">
-                             <Input 
-                                disabled={!item.selected}
-                                className={`h-9 text-sm focus:ring-indigo-500 ${!item.partNumber && item.selected ? 'border-red-300 bg-red-50/20' : 'border-gray-200'}`} 
-                                placeholder="BR-1234"
-                                value={item.partNumber}
-                                onChange={(e) => {
-                                  const newData = [...reportData];
-                                  const itemIdx = reportData.indexOf(item);
-                                  if (itemIdx !== -1) {
-                                    newData[itemIdx] = { ...item, partNumber: e.target.value };
-                                    setReportData(newData);
-                                  }
-                                }}
-                             />
+                             <Input className="h-8 text-xs" value={item.binLocation} onChange={(e) => {
+                                const newData = [...reportData];
+                                const itemIdx = reportData.indexOf(item);
+                                if (itemIdx !== -1) { newData[itemIdx] = { ...item, binLocation: e.target.value }; setReportData(newData); }
+                             }} />
                           </td>
                           <td className="p-3">
-                             <Input 
-                                disabled={!item.selected}
-                                className={`h-9 text-sm focus:ring-indigo-500 ${!item.binLocation && item.selected ? 'border-red-300 bg-red-50/20' : 'border-gray-200'}`} 
-                                placeholder="A-01"
-                                value={item.binLocation}
-                                onChange={(e) => {
-                                  const newData = [...reportData];
-                                  const itemIdx = reportData.indexOf(item);
-                                  if (itemIdx !== -1) {
-                                    newData[itemIdx] = { ...item, binLocation: e.target.value };
-                                    setReportData(newData);
-                                  }
-                                }}
-                             />
-                          </td>
-                          <td className="p-3">
-                             <Input 
-                                disabled={!item.selected}
-                                className="h-9 text-sm focus:ring-indigo-500 border-gray-200" 
-                                placeholder="Specs/Note"
-                                value={item.description}
-                                onChange={(e) => {
-                                  const newData = [...reportData];
-                                  const itemIdx = reportData.indexOf(item);
-                                  if (itemIdx !== -1) {
-                                    newData[itemIdx] = { ...item, description: e.target.value };
-                                    setReportData(newData);
-                                  }
-                                }}
-                             />
+                             <Input className="h-8 text-xs" value={item.description} onChange={(e) => {
+                                const newData = [...reportData];
+                                const itemIdx = reportData.indexOf(item);
+                                if (itemIdx !== -1) { newData[itemIdx] = { ...item, description: e.target.value }; setReportData(newData); }
+                             }} />
                           </td>
                         </tr>
                       ))}
@@ -531,52 +489,27 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
 
           <DialogFooter className="pt-4 border-t">
             <Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button 
-                onClick={() => processImport(false)} 
-                disabled={loading}
-                className="bg-indigo-600 hover:bg-indigo-700"
-            >
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirm & Process Import'}
+            <Button onClick={() => processImport(false)} disabled={loading} className="bg-indigo-600 hover:bg-indigo-700">
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirm Import'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Collision Confirmation Modal */}
       <Dialog open={showCollisionModal} onOpenChange={setShowCollisionModal}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-orange-600">
-               <AlertTriangle className="h-5 w-5" />
-               Bin Location Conflict
-            </DialogTitle>
-            <DialogDescription>
-               The following bins are already occupied by other parts. 
-               Are you sure you want to add these new parts to the same bins?
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2 text-orange-600"><AlertTriangle className="h-5 w-5" /> Bin Conflict</DialogTitle>
+            <DialogDescription>Some bins are already occupied. Proceed anyway?</DialogDescription>
           </DialogHeader>
-
-          <div className="py-4 max-h-[300px] overflow-y-auto">
-             <div className="space-y-3">
-                {collisions.map((c, i) => (
-                  <div key={i} className="text-sm p-3 rounded-lg border bg-orange-50/30 border-orange-100 italic">
-                    Bin <span className="font-bold text-orange-700">"{c.item.binLocation}"</span> is occupied by 
-                    <span className="font-bold text-gray-900"> "{c.existing.partName}"</span>. 
-                    Adding <span className="font-semibold text-indigo-700">"{c.item.partName}"</span> here anyway?
-                  </div>
-                ))}
-             </div>
+          <div className="py-4 space-y-2">
+            {collisions.map((c, i) => (
+              <div key={i} className="text-xs p-2 border rounded bg-orange-50">Bin <b>"{c.item.binLocation}"</b> is used by <b>"{c.existing.partName}"</b></div>
+            ))}
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCollisionModal(false)}>Cancel & Go Back</Button>
-            <Button 
-              className="bg-orange-600 hover:bg-orange-700"
-              onClick={() => processImport(true)}
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Yes, Proceed All'}
-            </Button>
+            <Button variant="outline" onClick={() => setShowCollisionModal(false)}>Back</Button>
+            <Button className="bg-orange-600 hover:bg-orange-700" onClick={() => processImport(true)} disabled={loading}>Yes, Proceed</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
