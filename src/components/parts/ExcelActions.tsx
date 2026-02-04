@@ -49,7 +49,7 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
         { header: 'Max', key: 'maxStock', width: 10 },
         { header: 'Min', key: 'minStock', width: 10 },
         { header: 'Reorder', key: 'reorderQuantity', width: 10 },
-        { header: 'Lead Time', key: 'leadTimeDays', width: 10 },
+        { header: 'Lead Time (Days)', key: 'leadTimeDays', width: 10 },
       ];
 
       // Style Header

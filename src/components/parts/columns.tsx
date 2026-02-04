@@ -314,7 +314,7 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
   {
     accessorKey: 'leadTimeDays',
     header: 'Lead Time',
-    cell: ({ row }) => <div className="text-center font-bold text-slate-600 bg-slate-100 py-1 rounded border border-slate-200">{row.getValue('leadTimeDays')}d</div>
+    cell: ({ row }) => <div className="text-center font-bold text-slate-600 bg-slate-100 py-1 rounded border border-slate-200">{row.getValue('leadTimeDays')}D</div>
   },
   {
     id: 'actions',

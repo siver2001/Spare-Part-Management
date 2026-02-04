@@ -129,7 +129,7 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                         </div>
                          <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /> Lead Time</span>
-                            <span className="font-medium">{part.leadTimeDays} days</span>
+                            <span className="font-medium">{part.leadTimeDays} Days</span>
                         </div>
                     </div>
 
