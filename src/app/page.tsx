@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2, FileSpreadsheet } from "lucide-react";
 import { ExcelActions } from "@/components/parts/ExcelActions";
+import { ImportGoodsReport } from "@/components/parts/ImportGoodsReport";
 
 export default function Home() {
   const [data, setData] = useState<SparePart[]>([]);
@@ -72,7 +73,10 @@ export default function Home() {
             )}
             
             {user && (user.role === 'ADMIN' || user.role === 'POWER_USER') && (
-              <ExcelActions data={data} onImportSuccess={refreshData} />
+              <>
+                <ImportGoodsReport existingParts={data} onImportSuccess={refreshData} />
+                <ExcelActions data={data} onImportSuccess={refreshData} />
+              </>
             )}
             
             {canAdd && (

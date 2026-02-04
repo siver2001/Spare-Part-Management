@@ -258,7 +258,7 @@ export const SupabaseService = {
       .eq('bin_location', binLocation)
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "Row not found"
+    if (error && error.code !== 'PGRST116') throw error;
     if (!data) return null;
 
     return {
@@ -312,6 +312,19 @@ export const SupabaseService = {
 
   // --- Transactions ---
   getTransactions: async (): Promise<Transaction[]> => {
+    // Auto-cleanup: Delete transactions older than 365 days
+    try {
+      const oneYearAgo = new Date();
+      oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+      
+      await supabase
+        .from('transactions')
+        .delete()
+        .lt('created_at', oneYearAgo.toISOString());
+    } catch (cleanupError) {
+      console.error('Failed to cleanup old transactions:', cleanupError);
+    }
+
     const { data, error } = await supabase
       .from('transactions')
       .select('*')

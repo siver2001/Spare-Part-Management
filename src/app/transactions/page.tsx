@@ -35,7 +35,7 @@ export default function TransactionsPage() {
     <ProtectedLayout>
       <div className="mb-6">
          <h1 className="text-2xl font-bold tracking-tight">Transaction History</h1>
-         <p className="text-muted-foreground">Log of all stock movements (auto-cleared after 60 days).</p>
+         <p className="text-muted-foreground">Log of all stock movements (auto-cleared after 365 days).</p>
       </div>
 
       {loading ? (

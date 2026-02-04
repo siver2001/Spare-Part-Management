@@ -3,9 +3,9 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { SparePart } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, ArrowDownCircle, ArrowUpCircle, Edit, QrCode, Trash2, Filter } from 'lucide-react';
+import { ArrowUpDown, ArrowDownCircle, ArrowUpCircle, Edit, QrCode, Trash2, Filter, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { StockActionModal } from './StockActionModal';
 import { EditPartModal } from './EditPartModal';
 import { PartDetailsModal } from './PartDetailsModal';
@@ -30,12 +30,13 @@ const ActionCell = ({ part, refreshData }: { part: SparePart, refreshData: () =>
     <>
       <div className="flex items-center gap-2">
          <Button 
-          variant="ghost" 
+          variant="outline" 
           size="sm" 
-          className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+          className="h-8 px-2 text-indigo-600 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-600 hover:text-white shadow-sm transition-all group"
           onClick={() => setModalOpen('VIEW')}
         >
-          <span className="text-xs font-semibold">View</span>
+          <Eye className="mr-1.5 h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+          <span className="text-xs font-bold">View</span>
         </Button>
         <div className="h-4 w-px bg-gray-200" />
         <Button 

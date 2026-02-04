@@ -40,28 +40,42 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
      }));
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-          try {
-            setLoading(true);
-            const { compressImage } = await import('@/lib/imageUtils');
-            const compressed = await compressImage(file);
-            
-            // Create preview
-            const url = URL.createObjectURL(compressed);
-            setImagePreview(url);
-            setImageFile(compressed);
-            
-            const sizeKB = Math.round(compressed.size / 1024);
-            toast.success(`Image compressed to ${sizeKB}KB`);
-          } catch (error) {
-            console.error(error);
-            toast.error("Failed to process image");
-          } finally {
-            setLoading(false);
-          }
-      }
+  const handleImageFile = async (file: File) => {
+    try {
+      setLoading(true);
+      const { compressImage } = await import('@/lib/imageUtils');
+      const compressed = await compressImage(file);
+      
+      const url = URL.createObjectURL(compressed);
+      setImagePreview(url);
+      setImageFile(compressed);
+      
+      const sizeKB = Math.round(compressed.size / 1024);
+      toast.success(`Image compressed to ${sizeKB}KB`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to process image");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageFile(file);
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            const file = items[i].getAsFile();
+            if (file) {
+                handleImageFile(file);
+                break;
+            }
+        }
+    }
   };
 
   const handleChange = (field: keyof SparePart, value: any) => {
@@ -123,7 +137,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[700px] h-[85vh] flex flex-col">
+      <DialogContent onPaste={handlePaste} className="sm:max-w-[700px] h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Add New Spare Part</DialogTitle>
         </DialogHeader>

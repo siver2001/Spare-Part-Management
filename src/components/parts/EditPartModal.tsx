@@ -47,26 +47,41 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
     }
   }, [part]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFile = async (file: File) => {
+    try {
+      setLoading(true);
+      const { compressImage } = await import('@/lib/imageUtils');
+      const compressed = await compressImage(file);
+      
+      const url = URL.createObjectURL(compressed);
+      setImagePreview(url);
+      setImageFile(compressed);
+      
+      const sizeKB = Math.round(compressed.size / 1024);
+      toast.success(`Image compressed to ${sizeKB}KB`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to process image");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-        try {
-          setLoading(true);
-          const { compressImage } = await import('@/lib/imageUtils');
-          const compressed = await compressImage(file);
-          
-          const url = URL.createObjectURL(compressed);
-          setImagePreview(url);
-          setImageFile(compressed);
-          
-          const sizeKB = Math.round(compressed.size / 1024);
-          toast.success(`Image compressed to ${sizeKB}KB`);
-        } catch (error) {
-          console.error(error);
-          toast.error("Failed to process image");
-        } finally {
-          setLoading(false);
+    if (file) handleImageFile(file);
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          handleImageFile(file);
+          break;
         }
+      }
     }
   };
 
@@ -110,7 +125,7 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] h-[80vh] flex flex-col">
+      <DialogContent onPaste={handlePaste} className="sm:max-w-[600px] h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Edit Part - {part.partName}</DialogTitle>
         </DialogHeader>
