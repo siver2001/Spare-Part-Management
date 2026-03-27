@@ -20,6 +20,7 @@ export interface SparePart {
   description?: string;
   costCenter?: string; // New
   useFor?: string;      // New
+  machines?: string[];
   currentStockOk: number;
   currentStockDamaged: number;
   safetyStockOk: number;

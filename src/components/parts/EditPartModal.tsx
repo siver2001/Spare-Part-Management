@@ -15,16 +15,30 @@ interface EditPartModalProps {
   onClose: () => void;
   part: SparePart | null;
   onSuccess: () => void;
+  machineOptions?: string[];
 }
 
-export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModalProps) {
+const buildMachineOptions = (baseOptions: string[], selectedMachines: string[]) =>
+  Array.from(new Set([...baseOptions, ...selectedMachines].map((item) => item.trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b));
+
+export function EditPartModal({
+  isOpen,
+  onClose,
+  part,
+  onSuccess,
+  machineOptions = [],
+}: EditPartModalProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<SparePart>>({});
   const [imageFile, setImageFile] = useState<Blob | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(part?.imageUrl || null);
+  const [availableMachines, setAvailableMachines] = useState<string[]>([]);
+  const [newMachineName, setNewMachineName] = useState('');
 
   useEffect(() => {
     if (part) {
+      const selectedMachines = part.machines || [];
       setFormData({
         partName: part.partName,
         partNumber: part.partNumber,
@@ -39,13 +53,16 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
         currentStockDamaged: part.currentStockDamaged,
         costCenter: part.costCenter,
         useFor: part.useFor,
+        machines: selectedMachines,
         minStock: part.minStock,
         isActive: part.isActive,
         imageUrl: part.imageUrl
       });
       setImagePreview(part.imageUrl || null);
+      setAvailableMachines(buildMachineOptions(machineOptions, selectedMachines));
+      setNewMachineName('');
     }
-  }, [part]);
+  }, [part, machineOptions]);
 
   const handleImageFile = async (file: File) => {
     try {
@@ -87,6 +104,24 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
 
   const handleChange = (field: keyof SparePart, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleMachineToggle = (machine: string, checked: boolean) => {
+    const currentMachines = formData.machines || [];
+    const nextMachines = checked
+      ? Array.from(new Set([...currentMachines, machine]))
+      : currentMachines.filter((item) => item !== machine);
+
+    handleChange('machines', nextMachines);
+  };
+
+  const handleAddMachineOption = () => {
+    const machineName = newMachineName.trim();
+    if (!machineName) return;
+
+    setAvailableMachines((prev) => buildMachineOptions(prev, [machineName]));
+    handleMachineToggle(machineName, true);
+    setNewMachineName('');
   };
 
   // Sync QR code with Bin Location
@@ -159,13 +194,51 @@ export function EditPartModal({ isOpen, onClose, part, onSuccess }: EditPartModa
                <Label className="text-right">Cost Center</Label>
                <Input value={formData.costCenter || ''} onChange={(e) => handleChange('costCenter', e.target.value)} className="col-span-3" />
              </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-               <Label className="text-right">Use For</Label>
-               <Input value={formData.useFor || ''} onChange={(e) => handleChange('useFor', e.target.value)} className="col-span-3" />
-             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-               <Label className="text-right">Bin Location</Label>
-               <Input value={formData.binLocation || ''} onChange={(e) => handleBinChange(e.target.value)} className="col-span-3" />
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Use For</Label>
+                <Input value={formData.useFor || ''} onChange={(e) => handleChange('useFor', e.target.value)} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right mt-2">{'M\u00E1y'}</Label>
+                <div className="col-span-3 space-y-3">
+                  <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
+                    {availableMachines.length > 0 ? (
+                      availableMachines.map((machine) => (
+                        <label key={machine} className="flex items-center gap-2 text-sm">
+                          <Checkbox
+                            checked={(formData.machines || []).includes(machine)}
+                            onCheckedChange={(checked) => handleMachineToggle(machine, checked === true)}
+                          />
+                          <span>{machine}</span>
+                        </label>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground sm:col-span-2">
+                        {'Ch\u01B0a c\u00F3 danh s\u00E1ch m\u00E1y. Nh\u1EADp t\u00EAn m\u00E1y b\u00EAn d\u01B0\u1EDBi \u0111\u1EC3 th\u00EAm.'}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      value={newMachineName}
+                      onChange={(e) => setNewMachineName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddMachineOption();
+                        }
+                      }}
+                      placeholder={'Nh\u1EADp t\u00EAn m\u00E1y m\u1EDBi'}
+                    />
+                    <Button type="button" variant="outline" onClick={handleAddMachineOption}>
+                      {'Th\u00EAm m\u00E1y'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Bin Location</Label>
+                <Input value={formData.binLocation || ''} onChange={(e) => handleBinChange(e.target.value)} className="col-span-3" />
              </div>
              
              {/* Stock Section */}

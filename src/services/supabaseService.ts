@@ -1,6 +1,14 @@
 import { supabase } from '@/lib/supabase';
 import { SparePart, Transaction, User, Role } from '@/types';
 
+const normalizeMachines = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((machine) => String(machine).trim())
+    .filter(Boolean);
+};
+
 export const SupabaseService = {
   // --- Users (Profiles) ---
   getUsers: async (): Promise<User[]> => {
@@ -111,6 +119,7 @@ export const SupabaseService = {
       qrCodeValue: p.qr_code_value,
       costCenter: p.cost_center,
       useFor: p.use_for,
+      machines: normalizeMachines(p.machines),
       minStock: p.min_stock || 0,
       isActive: p.is_active,
       imageUrl: p.image_url,
@@ -147,6 +156,7 @@ export const SupabaseService = {
         qr_code_value: data.qrCodeValue,
         cost_center: data.costCenter,
         use_for: data.useFor,
+        machines: normalizeMachines(data.machines),
         min_stock: data.minStock,
         is_active: data.isActive,
         image_url: data.imageUrl
@@ -172,6 +182,7 @@ export const SupabaseService = {
       qrCodeValue: newPart.qr_code_value,
       costCenter: newPart.cost_center,
       useFor: newPart.use_for,
+      machines: normalizeMachines(newPart.machines),
       minStock: newPart.min_stock || 0,
       isActive: newPart.is_active,
       imageUrl: newPart.image_url,
@@ -196,6 +207,7 @@ export const SupabaseService = {
     if (updates.qrCodeValue !== undefined) mappedUpdates.qr_code_value = updates.qrCodeValue;
     if (updates.costCenter !== undefined) mappedUpdates.cost_center = updates.costCenter;
     if (updates.useFor !== undefined) mappedUpdates.use_for = updates.useFor;
+    if (updates.machines !== undefined) mappedUpdates.machines = normalizeMachines(updates.machines);
     if (updates.minStock !== undefined) mappedUpdates.min_stock = updates.minStock;
     if (updates.isActive !== undefined) mappedUpdates.is_active = updates.isActive;
     if (updates.imageUrl !== undefined) mappedUpdates.image_url = updates.imageUrl;
@@ -225,6 +237,7 @@ export const SupabaseService = {
       qrCodeValue: updatedPart.qr_code_value,
       costCenter: updatedPart.cost_center,
       useFor: updatedPart.use_for,
+      machines: normalizeMachines(updatedPart.machines),
       minStock: updatedPart.min_stock || 0,
       isActive: updatedPart.is_active,
       imageUrl: updatedPart.image_url,
@@ -277,6 +290,7 @@ export const SupabaseService = {
       qrCodeValue: data.qr_code_value,
       costCenter: data.cost_center,
       useFor: data.use_for,
+      machines: normalizeMachines(data.machines),
       minStock: data.min_stock || 0,
       isActive: data.is_active,
       createdAt: data.created_at,
@@ -302,6 +316,7 @@ export const SupabaseService = {
         qr_code_value: p.qrCodeValue,
         cost_center: p.costCenter,
         use_for: p.useFor,
+        machines: normalizeMachines(p.machines),
         min_stock: p.minStock,
         is_active: p.isActive,
         image_url: p.imageUrl

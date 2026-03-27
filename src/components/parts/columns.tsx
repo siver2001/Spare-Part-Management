@@ -20,7 +20,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 // Cell Component for Actions to manage ModalState
-const ActionCell = ({ part, refreshData }: { part: SparePart, refreshData: () => void }) => {
+const ActionCell = ({
+  part,
+  refreshData,
+  machineOptions,
+}: {
+  part: SparePart;
+  refreshData: () => void;
+  machineOptions: string[];
+}) => {
   const [modalOpen, setModalOpen] = useState<'IN' | 'OUT' | 'EDIT' | 'VIEW' | null>(null);
   const { user } = useAuth();
 
@@ -113,6 +121,7 @@ const ActionCell = ({ part, refreshData }: { part: SparePart, refreshData: () =>
           onClose={() => setModalOpen(null)} 
           part={part} 
           onSuccess={refreshData}
+          machineOptions={machineOptions}
         />
       )}
       {modalOpen === 'VIEW' && (
@@ -187,6 +196,11 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
     'Below Safety',
     'Greater Than or Equal to Safety'
   ];
+  const machineFilterOptions = Array.from(
+    new Set(
+      allData.flatMap((part) => part.machines || []).filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
 
   return [
   {
@@ -221,6 +235,42 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
     accessorKey: 'partName',
     header: 'Part Name',
     cell: ({ row }) => <div className="font-medium whitespace-nowrap">{row.getValue('partName')}</div>
+  },
+  {
+    accessorKey: 'useFor',
+    header: 'Use For',
+    cell: ({ row }) => (
+      <div className="max-w-[180px] truncate text-muted-foreground" title={row.original.useFor || ''}>
+        {row.original.useFor || '-'}
+      </div>
+    )
+  },
+  {
+    id: 'machines',
+    accessorFn: (row) => (row.machines || []).join(', '),
+    header: ({ column }) => <ColumnHeaderWithFilter column={column} title={'M\u00E1y'} options={machineFilterOptions} hideSort />,
+    enableSorting: false,
+    filterFn: (row, _id, filterValues: string[]) => {
+      if (!filterValues || filterValues.length === 0) return true;
+      const machines = row.original.machines || [];
+      return filterValues.some((value) => machines.includes(value));
+    },
+    cell: ({ row }) => {
+      const machines = row.original.machines || [];
+      if (machines.length === 0) {
+        return <div className="text-sm text-muted-foreground">-</div>;
+      }
+
+      return (
+        <div className="flex max-w-[220px] flex-wrap gap-1">
+          {machines.map((machine) => (
+            <Badge key={machine} variant="outline" className="bg-slate-50 text-slate-700">
+              {machine}
+            </Badge>
+          ))}
+        </div>
+      );
+    }
   },
   {
     accessorKey: 'description',
@@ -292,33 +342,14 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
     }
   },
   {
-    accessorKey: 'safetyStockOk',
-    header: 'Safety',
-    cell: ({ row }) => <div className="text-center font-bold text-orange-600 bg-orange-50 py-1 rounded border border-orange-100">{row.getValue('safetyStockOk')}</div>
-  },
-  {
-    accessorKey: 'maxStock',
-    header: 'Max',
-    cell: ({ row }) => <div className="text-center font-bold text-blue-600 bg-blue-50 py-1 rounded border border-blue-100">{row.getValue('maxStock')}</div>
-  },
-  {
-    accessorKey: 'minStock',
-    header: 'Min',
-    cell: ({ row }) => <div className="text-center font-bold text-red-600 bg-red-50 py-1 rounded border border-red-100">{row.getValue('minStock')}</div>
-  },
-  {
-    accessorKey: 'reorderQuantity',
-    header: 'Reorder',
-    cell: ({ row }) => <div className="text-center font-bold text-purple-600 bg-purple-50 py-1 rounded border border-purple-100">{row.getValue('reorderQuantity')}</div>
-  },
-  {
-    accessorKey: 'leadTimeDays',
-    header: 'Lead Time',
-    cell: ({ row }) => <div className="text-center font-bold text-slate-600 bg-slate-100 py-1 rounded border border-slate-200">{row.getValue('leadTimeDays')}D</div>
-  },
-  {
     id: 'actions',
     header: 'Actions',
-    cell: ({ row }) => <ActionCell part={row.original} refreshData={refreshData} />,
+    cell: ({ row }) => (
+      <ActionCell
+        part={row.original}
+        refreshData={refreshData}
+        machineOptions={machineFilterOptions}
+      />
+    ),
   },
 ];};

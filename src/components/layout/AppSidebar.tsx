@@ -1,11 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Package, History, Users, Shield, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { Package, History, Users, Shield, ChevronLeft, ChevronRight, CalendarClock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface AppSidebarProps {
@@ -28,6 +26,18 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
       href: '/transactions',
       label: 'Transactions',
       icon: History,
+      roles: ['USER', 'POWER_USER', 'ADMIN'],
+    },
+    {
+      href: '/pm-dashboard',
+      label: 'PM Dashboard',
+      icon: CalendarClock,
+      roles: ['USER', 'POWER_USER', 'ADMIN'],
+    },
+    {
+      href: '/pm-daily-planner',
+      label: 'Daily Planner',
+      icon: CalendarClock,
       roles: ['USER', 'POWER_USER', 'ADMIN'],
     },
     {

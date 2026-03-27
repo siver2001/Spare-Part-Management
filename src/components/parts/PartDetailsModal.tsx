@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { SparePart } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Package, MapPin, AlertTriangle, Calendar, Activity, QrCode } from 'lucide-react';
+import { Package, MapPin, AlertTriangle, Calendar, Activity, QrCode, Wrench } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
 interface PartDetailsModalProps {
@@ -102,30 +102,48 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                     </div>
 
                     {/* Metadata Grid */}
-                    <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
-                        <div className="flex flex-col">
-                            <span className="text-muted-foreground text-xs flex items-center gap-1"><MapPin className="h-3 w-3" /> Bin Location</span>
-                            <span className="font-medium">{part.binLocation || 'N/A'}</span>
+                     <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
+                         <div className="flex flex-col">
+                             <span className="text-muted-foreground text-xs flex items-center gap-1"><MapPin className="h-3 w-3" /> Bin Location</span>
+                             <span className="font-medium">{part.binLocation || 'N/A'}</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs">Cost Center</span>
                             <span className="font-medium">{part.costCenter || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-muted-foreground text-xs">Use For</span>
-                            <span className="font-medium">{part.useFor || 'N/A'}</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-muted-foreground text-xs flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Min Stock</span>
-                            <span className="font-medium text-red-600">{part.minStock || 0} units</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-muted-foreground text-xs flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Safety Level</span>
-                            <span className="font-medium text-orange-600">{part.safetyStockOk} units</span>
-                        </div>
                          <div className="flex flex-col">
-                            <span className="text-muted-foreground text-xs">Reorder Quantity</span>
-                            <span className="font-medium">{part.reorderQuantity} units</span>
+                             <span className="text-muted-foreground text-xs">Use For</span>
+                             <span className="font-medium">{part.useFor || 'N/A'}</span>
+                         </div>
+                         <div className="flex flex-col">
+                             <span className="text-muted-foreground text-xs flex items-center gap-1"><Wrench className="h-3 w-3" /> {'M\u00E1y'}</span>
+                             <div className="mt-1 flex flex-wrap gap-1">
+                                 {(part.machines || []).length > 0 ? (
+                                   (part.machines || []).map((machine) => (
+                                     <Badge key={machine} variant="outline" className="bg-slate-50 text-slate-700">
+                                       {machine}
+                                     </Badge>
+                                   ))
+                                 ) : (
+                                   <span className="font-medium">N/A</span>
+                                 )}
+                             </div>
+                         </div>
+                         <div className="flex flex-col">
+                             <span className="text-muted-foreground text-xs flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Min Stock</span>
+                             <span className="font-medium text-red-600">{part.minStock || 0} units</span>
+                         </div>
+                         <div className="flex flex-col">
+                             <span className="text-muted-foreground text-xs flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Safety Level</span>
+                             <span className="font-medium text-orange-600">{part.safetyStockOk} units</span>
+                         </div>
+                         <div className="flex flex-col">
+                             <span className="text-muted-foreground text-xs">Max Stock</span>
+                             <span className="font-medium text-blue-600">{part.maxStock} units</span>
+                         </div>
+                          <div className="flex flex-col">
+                             <span className="text-muted-foreground text-xs">Reorder Quantity</span>
+                             <span className="font-medium">{part.reorderQuantity} units</span>
                         </div>
                          <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /> Lead Time</span>
