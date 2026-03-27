@@ -374,7 +374,7 @@ export default function PmDailyPlannerPage() {
   return (
     <ProtectedLayout>
       <div className="space-y-6">
-        <header className="flex flex-col gap-4 rounded-2xl border-0 bg-gradient-to-r from-slate-900 via-indigo-900 to-fuchsia-900 p-6 shadow-xl shadow-indigo-900/20 md:flex-row md:items-center md:justify-between">
+        <header className="flex flex-col gap-4 rounded-2xl border-0 bg-linear-to-r from-slate-900 via-indigo-900 to-fuchsia-900 p-6 shadow-xl shadow-indigo-900/20 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white">Monthly Planner</h1>
             <p className="text-sm text-slate-200">Plan and track daily PM assignments for each month</p>
@@ -384,7 +384,7 @@ export default function PmDailyPlannerPage() {
               <Button variant="outline" onClick={() => setIsSyncDialogOpen(true)} className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white">
                 <RefreshCw className="mr-2 h-4 w-4" /> Sync From PM Schedule
               </Button>
-              <Button onClick={handleOpenAdd} className="bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-500/30 hover:from-cyan-300 hover:to-blue-400">
+              <Button onClick={handleOpenAdd} className="bg-linear-to-r from-cyan-400 to-blue-500 text-slate-950 shadow-lg shadow-cyan-500/30 hover:from-cyan-300 hover:to-blue-400">
                  <Plus className="mr-2 h-4 w-4" /> Add Task for {selectedDateStr}
               </Button>
             </div>
@@ -394,12 +394,12 @@ export default function PmDailyPlannerPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Calendar Section */}
           <Card className="lg:col-span-4 h-fit overflow-hidden border-0 bg-white shadow-md shadow-slate-200/70">
-            <CardHeader className="border-b border-cyan-100 bg-gradient-to-r from-cyan-50 via-sky-50 to-blue-50 py-4">
+            <CardHeader className="border-b border-cyan-100 bg-linear-to-r from-cyan-50 via-sky-50 to-blue-50 py-4">
                <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <CalendarIcon className="h-4 w-4 text-indigo-600" /> Select Date
                 </CardTitle>
             </CardHeader>
-            <CardContent className="flex justify-center bg-gradient-to-b from-white to-cyan-50/50 p-4">
+            <CardContent className="flex justify-center bg-linear-to-b from-white to-cyan-50/50 p-4">
               <Calendar
                 mode="single"
                 selected={date}
@@ -417,7 +417,7 @@ export default function PmDailyPlannerPage() {
 
           {/* Daily Tasks Section */}
           <Card className="lg:col-span-8 flex min-h-[500px] flex-col overflow-hidden border-0 bg-white shadow-md shadow-slate-200/70">
-             <CardHeader className="flex flex-row items-center justify-between border-b border-fuchsia-100 bg-gradient-to-r from-fuchsia-50 via-violet-50 to-indigo-50 py-4">
+             <CardHeader className="flex flex-row items-center justify-between border-b border-fuchsia-100 bg-linear-to-r from-fuchsia-50 via-violet-50 to-indigo-50 py-4">
                 <div>
                    <CardTitle className="text-lg font-bold">Tasks for {selectedDateStr}</CardTitle>
                     <CardDescription>
@@ -444,7 +444,7 @@ export default function PmDailyPlannerPage() {
                         </div>
                       ) : (
                         <Table>
-                          <TableHeader className="bg-gradient-to-r from-slate-50 via-cyan-50/50 to-fuchsia-50/50">
+                          <TableHeader className="bg-linear-to-r from-slate-50 via-cyan-50/50 to-fuchsia-50/50">
                             <TableRow>
                               <TableHead className="w-[100px]">Time</TableHead>
                               <TableHead>Assignee</TableHead>
@@ -455,7 +455,7 @@ export default function PmDailyPlannerPage() {
                           </TableHeader>
                           <TableBody>
                             {dailyTasks.map((task) => (
-                              <TableRow key={task.id} className={`group bg-gradient-to-r ${getStatusTone(task.status)} transition-colors hover:brightness-[0.98]`}>
+                              <TableRow key={task.id} className={`group bg-linear-to-r ${getStatusTone(task.status)} transition-colors hover:brightness-[0.98]`}>
                                 <TableCell className="font-medium align-top">
                                   <div className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-slate-700 shadow-sm">
                                     <Clock className="h-3.5 w-3.5 text-indigo-500" />
@@ -465,7 +465,7 @@ export default function PmDailyPlannerPage() {
                                 </TableCell>
                                 <TableCell className="align-top">
                                   <div className="flex items-center gap-2">
-                                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 font-bold text-[10px] text-white shadow-sm">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 to-fuchsia-500 font-bold text-[10px] text-white shadow-sm">
                                        {task.assignee ? task.assignee.charAt(0).toUpperCase() : '?'}
                                      </div>
                                     <span className="text-sm text-slate-700">{task.assignee || 'Unassigned'}</span>
@@ -602,7 +602,7 @@ export default function PmDailyPlannerPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700">Save Task</Button>
+            <Button onClick={handleSave} className="bg-linear-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700">Save Task</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -649,7 +649,7 @@ export default function PmDailyPlannerPage() {
               </Select>
             </div>
 
-            <div className="rounded-xl border border-cyan-100 bg-gradient-to-r from-cyan-50 via-sky-50 to-indigo-50 p-4 text-sm text-slate-600">
+            <div className="rounded-xl border border-cyan-100 bg-linear-to-r from-cyan-50 via-sky-50 to-indigo-50 p-4 text-sm text-slate-600">
               <p className="font-medium text-slate-900">
                 {syncMode === 'week'
                   ? `Tuan duoc dong bo: Week ${selectedWeek} / ${selectedWeekYear}`
@@ -667,7 +667,7 @@ export default function PmDailyPlannerPage() {
             <Button variant="outline" onClick={() => setIsSyncDialogOpen(false)} disabled={syncing}>
               Cancel
             </Button>
-            <Button onClick={handleSyncPmSchedule} className="bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-600 hover:to-indigo-700" disabled={syncing || !date}>
+            <Button onClick={handleSyncPmSchedule} className="bg-linear-to-r from-cyan-500 to-indigo-600 hover:from-cyan-600 hover:to-indigo-700" disabled={syncing || !date}>
               {syncing ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -700,7 +700,7 @@ export default function PmDailyPlannerPage() {
             </Button>
             <Button
               onClick={() => taskPendingDelete && handleDelete(taskPendingDelete)}
-              className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700"
+              className="bg-linear-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700"
             >
               Delete Task
             </Button>

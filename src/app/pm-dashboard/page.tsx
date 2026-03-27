@@ -395,7 +395,7 @@ export default function PmDashboardPage() {
 
     if (!data) {
       return (
-        <Card className={cn('border-dashed border-2 bg-gradient-to-br shadow-sm', workshopTheme.shell, workshopTheme.border)}>
+        <Card className={cn('border-dashed border-2 bg-linear-to-br shadow-sm', workshopTheme.shell, workshopTheme.border)}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Upload className="h-5 w-5 text-indigo-600" />
@@ -409,7 +409,7 @@ export default function PmDashboardPage() {
             <Button
               onClick={() => openFileDialog(workshop)}
               disabled={isImporting}
-              className={cn('bg-gradient-to-r text-white shadow-lg', workshopTheme.button)}
+              className={cn('bg-linear-to-r text-white shadow-lg', workshopTheme.button)}
             >
               {isImporting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -452,25 +452,25 @@ export default function PmDashboardPage() {
     return (
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card className="overflow-hidden border-0 bg-gradient-to-br from-cyan-500 via-sky-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20">
+          <Card className="overflow-hidden border-0 bg-linear-to-br from-cyan-500 via-sky-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20">
             <CardHeader className="pb-2">
               <CardDescription className="text-cyan-50">Total Machines</CardDescription>
               <CardTitle className="text-3xl text-white">{data.machines.length}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="overflow-hidden border-0 bg-gradient-to-br from-violet-500 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-fuchsia-500/20">
+          <Card className="overflow-hidden border-0 bg-linear-to-br from-violet-500 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-fuchsia-500/20">
             <CardHeader className="pb-2">
               <CardDescription className="text-fuchsia-50">Total PM Plans</CardDescription>
               <CardTitle className="text-3xl text-white">{data.tasks.length}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="overflow-hidden border-0 bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20">
+          <Card className="overflow-hidden border-0 bg-linear-to-br from-emerald-500 via-green-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20">
             <CardHeader className="pb-2">
               <CardDescription className="text-emerald-50">PM In Current Week</CardDescription>
               <CardTitle className="text-3xl text-white">{currentWeekTasks.length}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="overflow-hidden border-0 bg-gradient-to-br from-amber-400 via-orange-400 to-rose-500 text-white shadow-lg shadow-orange-500/20">
+          <Card className="overflow-hidden border-0 bg-linear-to-br from-amber-400 via-orange-400 to-rose-500 text-white shadow-lg shadow-orange-500/20">
             <CardHeader className="pb-2">
               <CardDescription className="text-orange-50">Monthly Coverage ({monthlyFocus})</CardDescription>
               <CardTitle className="text-3xl text-white">{monthCoverage}%</CardTitle>
@@ -486,7 +486,7 @@ export default function PmDashboardPage() {
           </Card>
         </div>
 
-        <Card className={cn('border-0 bg-gradient-to-r shadow-md', workshopTheme.shell)}>
+        <Card className={cn('border-0 bg-linear-to-r shadow-md', workshopTheme.shell)}>
           <CardContent className="pt-6 space-y-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-wrap items-center gap-2">
@@ -579,7 +579,7 @@ export default function PmDashboardPage() {
         </Card>
 
         <Card className="overflow-hidden border-0 bg-white/95 shadow-md shadow-slate-200/70">
-          <CardHeader className="border-b border-cyan-100 bg-gradient-to-r from-cyan-50 via-sky-50 to-blue-50 pb-2">
+          <CardHeader className="border-b border-cyan-100 bg-linear-to-r from-cyan-50 via-sky-50 to-blue-50 pb-2">
             <CardTitle className="text-lg text-slate-900">Machine Card View</CardTitle>
             <CardDescription>
               Quick card view by machine. Highlight supports weekly operation follow-up.
@@ -604,7 +604,7 @@ export default function PmDashboardPage() {
                 const dueCurrentWeek = machine.plannedWeeks.includes(currentWeek);
                 const cardTone = dueCurrentWeek
                   ? {
-                      shell: 'border-amber-300 bg-gradient-to-br from-amber-100 via-orange-50 to-rose-100',
+                      shell: 'border-amber-300 bg-linear-to-br from-amber-100 via-orange-50 to-rose-100',
                       glow: 'from-amber-300/35 to-rose-300/15',
                       badge: 'bg-amber-500 text-white hover:bg-amber-500',
                       chip: 'bg-amber-100 text-amber-800',
@@ -612,14 +612,14 @@ export default function PmDashboardPage() {
                     }
                   : monthPmCount > 0
                     ? {
-                        shell: 'border-cyan-200 bg-gradient-to-br from-cyan-100 via-sky-50 to-indigo-100',
+                        shell: 'border-cyan-200 bg-linear-to-br from-cyan-100 via-sky-50 to-indigo-100',
                         glow: 'from-cyan-300/30 to-indigo-300/15',
                         badge: 'bg-cyan-600 text-white hover:bg-cyan-600',
                         chip: 'bg-cyan-100 text-cyan-800',
                         label: 'Planned This Month',
                       }
                     : {
-                        shell: 'border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-100',
+                        shell: 'border-emerald-200 bg-linear-to-br from-emerald-50 via-teal-50 to-sky-100',
                         glow: 'from-emerald-300/20 to-sky-300/15',
                         badge: 'bg-emerald-600 text-white hover:bg-emerald-600',
                         chip: 'bg-slate-100 text-slate-700',
@@ -634,9 +634,9 @@ export default function PmDashboardPage() {
                       cardTone.shell
                     )}
                   >
-                    <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-tr opacity-90', cardTone.glow)} />
+                    <div className={cn('pointer-events-none absolute inset-0 bg-linear-to-tr opacity-90', cardTone.glow)} />
                     <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/30 blur-2xl" />
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-white/60 via-white/10 to-transparent" />
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-white/60 via-white/10 to-transparent" />
 
                     <div className="relative flex items-start justify-between gap-2">
                       <div>
@@ -671,7 +671,7 @@ export default function PmDashboardPage() {
 
         <div className="grid gap-4 xl:grid-cols-4">
           <Card className="xl:col-span-3 overflow-hidden border-0 bg-white/95 shadow-md shadow-slate-200/70">
-            <CardHeader className="border-b border-violet-100 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-pink-50 pb-2">
+            <CardHeader className="border-b border-violet-100 bg-linear-to-r from-violet-50 via-fuchsia-50 to-pink-50 pb-2">
               <CardTitle className="text-lg text-slate-900">Detailed PM Board (Week 1-52)</CardTitle>
               <CardDescription>
                 Green: past week planned. Orange: current/upcoming planned. Current week is highlighted.
@@ -739,7 +739,7 @@ export default function PmDashboardPage() {
                                   }}
                                   className={cn(
                                     'h-8 min-w-9 border-r text-center text-[10px] font-semibold transition-all',
-                                    week === currentWeek && 'outline outline-1 outline-indigo-300',
+                                    week === currentWeek && 'outline outline-indigo-300',
                                     !planned && 'bg-slate-50 text-slate-300',
                                     planned && timing === 'past' && 'bg-emerald-500/90 text-white hover:bg-emerald-600 cursor-pointer shadow-sm',
                                     planned && timing !== 'past' && 'bg-amber-400/90 text-slate-900 hover:bg-amber-500 cursor-pointer shadow-sm'
@@ -760,7 +760,7 @@ export default function PmDashboardPage() {
           </Card>
 
           <Card className="overflow-hidden border-0 bg-white/95 shadow-md shadow-slate-200/70">
-            <CardHeader className="border-b border-amber-100 bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 pb-2">
+            <CardHeader className="border-b border-amber-100 bg-linear-to-r from-amber-50 via-orange-50 to-rose-50 pb-2">
               <CardTitle className="flex items-center justify-between text-lg">
                 <span className="flex items-center gap-2">
                   <ClipboardList className="h-5 w-5 text-indigo-600" />
@@ -784,8 +784,8 @@ export default function PmDashboardPage() {
                     className={cn(
                       'rounded-lg border p-3 cursor-pointer hover:shadow-md transition-all',
                       task.week === currentWeek
-                        ? 'border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100'
-                        : 'border-slate-200 bg-gradient-to-r from-white to-sky-50/40 hover:from-slate-50 hover:to-sky-50'
+                        ? 'border-amber-300 bg-linear-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100'
+                        : 'border-slate-200 bg-linear-to-r from-white to-sky-50/40 hover:from-slate-50 hover:to-sky-50'
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -821,7 +821,7 @@ export default function PmDashboardPage() {
   return (
     <ProtectedLayout>
       <div className="space-y-6">
-        <div className="overflow-hidden rounded-2xl border-0 bg-gradient-to-r from-slate-900 via-indigo-900 to-sky-900 p-6 shadow-xl shadow-indigo-900/20">
+        <div className="overflow-hidden rounded-2xl border-0 bg-linear-to-r from-slate-900 via-indigo-900 to-sky-900 p-6 shadow-xl shadow-indigo-900/20">
           <h1 className="text-2xl font-bold tracking-tight text-white">PM Schedule Dashboard</h1>
           <p className="mt-1 text-sm text-slate-200">
             Monitor periodic maintenance plans for Foaming and Insole. Import each workshop schedule to view 52-week
@@ -860,7 +860,7 @@ export default function PmDashboardPage() {
           onValueChange={(value) => setActiveWorkshop(value as PMWorkshopType)}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-gradient-to-r from-slate-100 via-cyan-50 to-orange-50 p-1">
+          <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-linear-to-r from-slate-100 via-cyan-50 to-orange-50 p-1">
             {WORKSHOPS.map((workshop) => (
               <TabsTrigger key={workshop} value={workshop} className="rounded-xl font-semibold data-[state=active]:bg-white data-[state=active]:shadow-md">
                 {WORKSHOP_META[workshop].label}
@@ -952,7 +952,7 @@ export default function PmDashboardPage() {
       </Dialog>
 
       <Sheet open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
-        <SheetContent className="w-full overflow-y-auto border-0 bg-gradient-to-b from-white via-slate-50 to-indigo-50 sm:max-w-md">
+        <SheetContent className="w-full overflow-y-auto border-0 bg-linear-to-b from-white via-slate-50 to-indigo-50 sm:max-w-md">
           {selectedTask && (
             <>
               <SheetHeader className="border-b border-indigo-100 pb-4">
