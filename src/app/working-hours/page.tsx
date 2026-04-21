@@ -14,11 +14,9 @@ import {
 
 import { ProtectedLayout } from '@/components/layout/ProtectedLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { SupabaseService } from '@/services/supabaseService';
 import { WorkingHours } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';

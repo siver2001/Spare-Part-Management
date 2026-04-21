@@ -987,7 +987,7 @@ export default function PmDailyPlannerPage() {
                           <CommandItem
                             key={u.id}
                             value={u.displayName}
-                            onSelect={(currentValue) => {
+                            onSelect={() => {
                               const alreadySelected = formData.assignees.includes(u.displayName);
                               if (alreadySelected) {
                                 setFormData({
