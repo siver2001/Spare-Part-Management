@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { QrCode } from 'lucide-react';
 import { QRScannerModal } from './QRScannerModal';
+import { cn } from '@/lib/utils';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -29,6 +30,10 @@ interface DataTableProps<TData, TValue> {
   searchKey?: string;
   onSearch?: (value: string) => void;
   onFilteredDataChange?: (data: TData[]) => void;
+  searchPlaceholder?: string;
+  toolbarActions?: React.ReactNode;
+  mobileCardRender?: (row: TData) => React.ReactNode;
+  emptyMessage?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -36,10 +41,15 @@ export function DataTable<TData, TValue>({
   data,
   searchKey,
   onSearch,
-  onFilteredDataChange
+  onFilteredDataChange,
+  searchPlaceholder,
+  toolbarActions,
+  mobileCardRender,
+  emptyMessage = 'No results.',
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [isScannerOpen, setIsScannerOpen] = React.useState(false);
+  const lastFilteredRowsRef = React.useRef<TData[] | null>(null);
 
   const table = useReactTable({
     data,
@@ -54,19 +64,35 @@ export function DataTable<TData, TValue>({
     autoResetPageIndex: false,
   });
 
+  const filteredRows = table.getFilteredRowModel().rows.map((row) => row.original);
+  const currentRows = table.getRowModel().rows;
+  const totalPages = Math.max(table.getPageCount(), 1);
+  const resolvedSearchPlaceholder =
+    searchPlaceholder ?? (searchKey ? `Search ${searchKey}...` : 'Search...');
+
   React.useEffect(() => {
-    if (onFilteredDataChange) {
-      const filteredRows = table.getFilteredRowModel().rows.map(row => row.original);
-      onFilteredDataChange(filteredRows);
+    if (!onFilteredDataChange) return;
+
+    const previousRows = lastFilteredRowsRef.current;
+    const hasChanged =
+      !previousRows ||
+      previousRows.length !== filteredRows.length ||
+      previousRows.some((row, index) => !Object.is(row, filteredRows[index]));
+
+    if (!hasChanged) {
+      return;
     }
-  }, [table.getFilteredRowModel().rows, onFilteredDataChange]);
+
+    lastFilteredRowsRef.current = filteredRows;
+    onFilteredDataChange(filteredRows);
+  }, [filteredRows, onFilteredDataChange]);
 
   return (
-    <div>
-      <div className="flex items-center py-4 w-full gap-2">
-        <div className="relative max-w-sm w-full flex items-center">
+    <div className="space-y-4">
+      <div className="flex w-full flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex w-full items-center sm:max-w-sm">
             <Input
-            placeholder="Search..."
+            placeholder={resolvedSearchPlaceholder}
             value={globalFilter ?? ''}
             onChange={(event) => {
                 setGlobalFilter(event.target.value);
@@ -84,6 +110,11 @@ export function DataTable<TData, TValue>({
                 <QrCode className="h-4 w-4" />
             </Button>
         </div>
+        {toolbarActions ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {toolbarActions}
+          </div>
+        ) : null}
       </div>
       
       <QRScannerModal 
@@ -95,7 +126,7 @@ export function DataTable<TData, TValue>({
             // Optionally play a sound or toast
         }} 
       />
-      <div className="rounded-md border bg-white">
+      <div className={cn('rounded-md border bg-white', mobileCardRender && 'hidden md:block')}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -138,14 +169,35 @@ export function DataTable<TData, TValue>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
+
+      {mobileCardRender ? (
+        <div className="space-y-3 md:hidden">
+          {currentRows.length ? (
+            currentRows.map((row) => (
+              <div key={row.id} className="rounded-2xl border bg-white p-4 shadow-sm">
+                {mobileCardRender(row.original)}
+              </div>
+            ))
+          ) : (
+            <div className="rounded-2xl border border-dashed bg-white px-4 py-10 text-center text-sm text-muted-foreground">
+              {emptyMessage}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Page {table.getState().pagination.pageIndex + 1} of {totalPages}
+        </p>
+        <div className="flex items-center justify-end gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -164,6 +216,7 @@ export function DataTable<TData, TValue>({
         >
           Next
         </Button>
+        </div>
       </div>
     </div>
   );

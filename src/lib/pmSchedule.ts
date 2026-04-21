@@ -3,11 +3,11 @@ import { PMChecklistItem, PMImportError, PMImportPreview, PMMachineSchedule, PMT
 
 export const PM_TOTAL_WEEKS = 52;
 const DEFAULT_PM_CHECKLIST_TEXTS = [
-  'Ve sinh khu vuc, lau chui may',
-  'Tra dau mo, boi tron truc / xich',
-  'Kiem tra day dien, cong tac, sensor',
-  'Kiem tra he thong khi nen, ong phu',
-  'Chay thu may, kiem tra tieng dong la',
+  'Vệ sinh khu vực, lau chùi máy',
+  'Tra dầu mỡ, bôi trơn trục / xích',
+  'Kiểm tra dây điện, công tắc, sensor',
+  'Kiểm tra hệ thống khí nén, ống phụ',
+  'Chạy thử máy, kiểm tra tiếng động lạ',
 ];
 
 interface WorkshopParseConfig {
@@ -25,7 +25,7 @@ const INSOLE_PM_MARKER_CODEPOINT = 0xe258;
 
 const WORKSHOP_PARSE_CONFIG: Record<PMWorkshopType, WorkshopParseConfig> = {
   foaming: {
-    workshopLabel: 'Xuong Foaming',
+    workshopLabel: 'Xưởng Foaming',
     sheetName: 'Master Plan(Monitoring)',
     startRowIndex: 4,
     equipmentNameColIndex: 1,
@@ -66,7 +66,7 @@ const WORKSHOP_PARSE_CONFIG: Record<PMWorkshopType, WorkshopParseConfig> = {
     },
   },
   insole: {
-    workshopLabel: 'Xuong Insole',
+    workshopLabel: 'Xưởng Insole',
     sheetName: 'Table 1',
     startRowIndex: 8,
     equipmentNameColIndex: 1,
@@ -189,11 +189,11 @@ export async function parsePmScheduleFile(file: File, workshop: PMWorkshopType):
 
   const worksheet = workbook.Sheets[parseConfig.sheetName];
   if (!worksheet) {
-    throw new Error(`Khong tim thay sheet "${parseConfig.sheetName}" trong file ${file.name}.`);
+    throw new Error(`Không tìm thấy sheet "${parseConfig.sheetName}" trong file ${file.name}.`);
   }
 
   if (!worksheet['!ref']) {
-    throw new Error(`Sheet "${parseConfig.sheetName}" khong co du lieu.`);
+    throw new Error(`Sheet "${parseConfig.sheetName}" không có dữ liệu.`);
   }
 
   const sheetRange = XLSX.utils.decode_range(worksheet['!ref']);
@@ -217,8 +217,8 @@ export async function parsePmScheduleFile(file: File, workshop: PMWorkshopType):
       errors.push({
         row: rowNumber,
         type: 'error',
-        message: 'Thieu ID Machine.',
-        suggestion: 'Vui long dien ID Machine cho dong nay.',
+        message: 'Thiếu ID Machine.',
+        suggestion: 'Vui lòng điền ID Machine cho dòng này.',
       });
     }
 
@@ -227,8 +227,8 @@ export async function parsePmScheduleFile(file: File, workshop: PMWorkshopType):
         row: rowNumber,
         idMachine,
         type: 'warning',
-        message: 'Thieu Ten Thiet Bi (Equipment Name).',
-        suggestion: 'Nen bo sung de de theo doi.',
+        message: 'Thiếu Tên Thiết Bị (Equipment Name).',
+        suggestion: 'Nên bổ sung để dễ theo dõi.',
       });
     }
 
@@ -239,8 +239,8 @@ export async function parsePmScheduleFile(file: File, workshop: PMWorkshopType):
           row: rowNumber,
           idMachine,
           type: 'error',
-          message: `Trung lap ID Machine: ${idMachine}.`,
-          suggestion: 'Hop nhat hoac doi ten ID de tranh nham lan.',
+          message: `Trùng lặp ID Machine: ${idMachine}.`,
+          suggestion: 'Hợp nhất hoặc đổi tên ID để tránh nhầm lẫn.',
         });
       }
       seenIds.add(idMachine);
@@ -265,8 +265,8 @@ export async function parsePmScheduleFile(file: File, workshop: PMWorkshopType):
            row: rowNumber,
            idMachine: safeIdMachine,
            type: 'warning',
-           message: `Co dau PM o cot nam ngoai 52 tuan (${colIndex + 1}).`,
-           suggestion: 'Kiem tra xem o nay co bi danh dau nham khong.',
+           message: `Có dấu PM ở cột nằm ngoài 52 tuần (${colIndex + 1}).`,
+           suggestion: 'Kiểm tra xem ô này có bị đánh dấu nhầm không.',
          });
          continue;
       }
@@ -280,16 +280,16 @@ export async function parsePmScheduleFile(file: File, workshop: PMWorkshopType):
         row: rowNumber,
         idMachine: safeIdMachine,
         type: 'warning',
-        message: 'May nay khong co lich PM nao trong nam.',
-        suggestion: 'Moi may nen co it nhat 1 lich PM, kiem tra lai neu thieu.',
+        message: 'Máy này không có lịch PM nào trong năm.',
+        suggestion: 'Mỗi máy nên có ít nhất 1 lịch PM, kiểm tra lại nếu thiếu.',
       });
     } else if (plannedWeekSet.size > 26) {
       errors.push({
         row: rowNumber,
         idMachine: safeIdMachine,
         type: 'warning',
-        message: `Lich PM day dac (${plannedWeekSet.size} tuan).`,
-        suggestion: 'Tan suat PM qua nhieu, hay kiem tra lai neu danh dau sai.',
+        message: `Lịch PM dày đặc (${plannedWeekSet.size} tuần).`,
+        suggestion: 'Tần suất PM quá nhiều, hãy kiểm tra lại nếu đánh dấu sai.',
       });
     }
 

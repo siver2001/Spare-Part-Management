@@ -167,40 +167,40 @@ export function EditPartModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent onPaste={handlePaste} className="sm:max-w-[600px] h-[80vh] flex flex-col">
+      <DialogContent onPaste={handlePaste} className="flex h-[90dvh] flex-col sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Edit Part - {part.partName}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-1 py-2">
           <div className="grid gap-4 py-4">
-             <div className="grid grid-cols-4 items-center gap-4">
-               <Label className="text-right">Part Name</Label>
-               <Input value={formData.partName || ''} onChange={(e) => handleChange('partName', e.target.value)} className="col-span-3" />
+             <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+               <Label className="sm:text-right">Part Name</Label>
+               <Input value={formData.partName || ''} onChange={(e) => handleChange('partName', e.target.value)} className="sm:col-span-3" />
              </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-               <Label className="text-right">Part Number</Label>
-               <Input value={formData.partNumber || ''} onChange={(e) => handleChange('partNumber', e.target.value)} className="col-span-3" />
+             <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+               <Label className="sm:text-right">Part Number</Label>
+               <Input value={formData.partNumber || ''} onChange={(e) => handleChange('partNumber', e.target.value)} className="sm:col-span-3" />
              </div>
-             <div className="grid grid-cols-4 items-start gap-4">
-               <Label className="text-right mt-2">Description</Label>
+             <div className="grid gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
+               <Label className="mt-2 sm:text-right">Description</Label>
                <textarea 
                   value={formData.description || ''} 
                   onChange={(e) => handleChange('description', e.target.value)} 
-                  className="col-span-3 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-3"
                   placeholder="Enter part description..."
                 />
              </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-               <Label className="text-right">Cost Center</Label>
-               <Input value={formData.costCenter || ''} onChange={(e) => handleChange('costCenter', e.target.value)} className="col-span-3" />
+             <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+               <Label className="sm:text-right">Cost Center</Label>
+               <Input value={formData.costCenter || ''} onChange={(e) => handleChange('costCenter', e.target.value)} className="sm:col-span-3" />
              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Use For</Label>
-                <Input value={formData.useFor || ''} onChange={(e) => handleChange('useFor', e.target.value)} className="col-span-3" />
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label className="sm:text-right">Use For</Label>
+                <Input value={formData.useFor || ''} onChange={(e) => handleChange('useFor', e.target.value)} className="sm:col-span-3" />
               </div>
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right mt-2">{'M\u00E1y'}</Label>
-                <div className="col-span-3 space-y-3">
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
+                <Label className="mt-2 sm:text-right">{'M\u00E1y'}</Label>
+                <div className="space-y-3 sm:col-span-3">
                   <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
                     {availableMachines.length > 0 ? (
                       availableMachines.map((machine) => (
@@ -236,9 +236,9 @@ export function EditPartModal({
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Bin Location</Label>
-                <Input value={formData.binLocation || ''} onChange={(e) => handleBinChange(e.target.value)} className="col-span-3" />
+              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label className="sm:text-right">Bin Location</Label>
+                <Input value={formData.binLocation || ''} onChange={(e) => handleBinChange(e.target.value)} className="sm:col-span-3" />
              </div>
              
              {/* Stock Section */}

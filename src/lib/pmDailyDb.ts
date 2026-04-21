@@ -1,7 +1,19 @@
 import { DailyAssignment } from '@/types/pmDaily';
 import { supabase } from '@/lib/supabase';
+import {
+  invalidateClientCacheByPrefix,
+  peekClientCache,
+  readClientCache,
+  writeClientCache,
+} from '@/lib/clientCache';
 
 const RETENTION_DAYS = 60;
+const PM_DAILY_CACHE_PREFIX = 'pm-daily:';
+const PM_DAILY_CACHE_TTL = 2 * 60 * 1000;
+
+function getPmDailyCacheKey(dateStart?: string, dateEnd?: string) {
+  return `${PM_DAILY_CACHE_PREFIX}${dateStart || 'all'}:${dateEnd || 'all'}`;
+}
 
 function toPayload(task: DailyAssignment) {
   return {
@@ -21,7 +33,19 @@ function toPayload(task: DailyAssignment) {
 }
 
 export const pmDailyDb = {
-  async getTasks(dateStart?: string, dateEnd?: string): Promise<DailyAssignment[]> {
+  peekTasks(dateStart?: string, dateEnd?: string): DailyAssignment[] | null {
+    return peekClientCache<DailyAssignment[]>(getPmDailyCacheKey(dateStart, dateEnd));
+  },
+
+  async getTasks(dateStart?: string, dateEnd?: string, options: { forceRefresh?: boolean } = {}): Promise<DailyAssignment[]> {
+    const cacheKey = getPmDailyCacheKey(dateStart, dateEnd);
+    if (!options.forceRefresh) {
+      const cachedTasks = readClientCache<DailyAssignment[]>(cacheKey, PM_DAILY_CACHE_TTL);
+      if (cachedTasks) {
+        return cachedTasks;
+      }
+    }
+
     let query = supabase
       .from('pm_daily_assignments')
       .select('*')
@@ -34,7 +58,7 @@ export const pmDailyDb = {
     const { data, error } = await query;
     if (error) return [];
 
-    return (data || []).map(t => ({
+    const tasks = (data || []).map(t => ({
       id: t.id,
       idMachine: t.id_machine,
       equipmentName: '', 
@@ -49,10 +73,14 @@ export const pmDailyDb = {
       notes: t.notes || '',
       photos: t.photos || []
     }));
+
+    writeClientCache(cacheKey, tasks);
+    return tasks;
   },
 
   async saveTask(task: DailyAssignment): Promise<void> {
     await supabase.from('pm_daily_assignments').upsert(toPayload(task));
+    invalidateClientCacheByPrefix(PM_DAILY_CACHE_PREFIX);
     this.cleanupOldTasks();
   },
 
@@ -82,6 +110,7 @@ export const pmDailyDb = {
 
     if (insertError) throw insertError;
 
+    invalidateClientCacheByPrefix(PM_DAILY_CACHE_PREFIX);
     this.cleanupOldTasks();
     return {
       created: newTasks.length,
@@ -91,6 +120,7 @@ export const pmDailyDb = {
 
   async deleteTask(id: string): Promise<void> {
     await supabase.from('pm_daily_assignments').delete().eq('id', id);
+    invalidateClientCacheByPrefix(PM_DAILY_CACHE_PREFIX);
   },
 
   async cleanupOldTasks() {

@@ -1,5 +1,121 @@
 import { supabase } from '@/lib/supabase';
-import { SparePart, Transaction, User, Role } from '@/types';
+import { SparePart, Transaction, User, Role, WorkingHours } from '@/types';
+import {
+  invalidateClientCache,
+  invalidateClientCacheByPrefix,
+  peekClientCache,
+  readClientCache,
+  writeClientCache,
+} from '@/lib/clientCache';
+
+type UserDeleteResult = {
+  mode: 'deleted' | 'disabled';
+  reason?: string;
+};
+
+type QueryOptions = {
+  forceRefresh?: boolean;
+};
+
+const CACHE_KEYS = {
+  users: 'profiles',
+  parts: 'spare-parts',
+  transactions: 'transactions',
+  workingHours: 'working-hours',
+} as const;
+
+const CACHE_TTL = {
+  users: 5 * 60 * 1000,
+  parts: 2 * 60 * 1000,
+  transactions: 60 * 1000,
+  workingHours: 10 * 60 * 1000,
+} as const;
+
+const TRANSACTION_CLEANUP_KEY = 'transactions-cleanup-last-run';
+const TRANSACTION_CLEANUP_INTERVAL = 12 * 60 * 60 * 1000;
+
+const mapProfile = (p: Record<string, unknown>): User => ({
+  id: String(p.id),
+  username: String(p.username),
+  displayName: String(p.display_name),
+  role: p.role as Role,
+  isActive: Boolean(p.is_active),
+  createdAt: String(p.created_at),
+  password: (p.password as string | undefined) || undefined,
+  imageUrl: (p.image_url as string | undefined) || undefined
+});
+
+const mapPart = (p: Record<string, unknown>): SparePart => ({
+  id: String(p.id),
+  no: Number(p.no),
+  partName: String(p.part_name),
+  partNumber: String(p.part_number),
+  description: (p.description as string | undefined) || undefined,
+  binLocation: String(p.bin_location),
+  currentStockOk: Number(p.current_stock_ok),
+  currentStockDamaged: Number(p.current_stock_damaged),
+  safetyStockOk: Number(p.safety_stock_ok),
+  maxStock: Number(p.max_stock),
+  reorderQuantity: Number(p.reorder_quantity),
+  leadTimeDays: Number(p.lead_time_days),
+  qrCodeValue: String(p.qr_code_value || ''),
+  costCenter: (p.cost_center as string | undefined) || undefined,
+  useFor: (p.use_for as string | undefined) || undefined,
+  machines: normalizeMachines(p.machines),
+  minStock: Number(p.min_stock || 0),
+  isActive: Boolean(p.is_active),
+  imageUrl: (p.image_url as string | undefined) || undefined,
+  createdAt: String(p.created_at),
+  updatedAt: String(p.updated_at)
+});
+
+const mapTransaction = (t: Record<string, unknown>): Transaction => ({
+  id: String(t.id),
+  orderNo: String(t.order_no),
+  type: t.type as 'IN' | 'OUT',
+  partId: String(t.part_id),
+  partName: String(t.part_name_snapshot),
+  partNumber: String(t.part_number_snapshot),
+  partCondition: t.part_condition as 'OK' | 'DAMAGED',
+  quantity: Number(t.quantity),
+  reason: (t.reason as string | undefined) || undefined,
+  workOrderNo: (t.work_order_no as string | undefined) || undefined,
+  inspectorName: (t.inspector_name as string | undefined) || undefined,
+  performedByUserId: t.performed_by_user_id ? String(t.performed_by_user_id) : null,
+  performedByDisplayName: String(t.performed_by_display_name_snapshot),
+  performedAt: String(t.performed_at),
+  createdAt: String(t.created_at)
+});
+
+const mapWorkingHours = (row: Record<string, unknown>): WorkingHours => ({
+  id: String(row.id),
+  msnv: String(row.msnv),
+  fullName: String(row.full_name),
+  department: String(row.department),
+  days: row.hours as Record<string, string | number>,
+  createdAt: String(row.created_at)
+});
+
+async function cleanupTransactionsInBackground() {
+  const lastRun = peekClientCache<number>(TRANSACTION_CLEANUP_KEY);
+  if (lastRun && Date.now() - lastRun < TRANSACTION_CLEANUP_INTERVAL) {
+    return;
+  }
+
+  writeClientCache(TRANSACTION_CLEANUP_KEY, Date.now());
+
+  try {
+    const oneYearAgo = new Date();
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+
+    await supabase
+      .from('transactions')
+      .delete()
+      .lt('created_at', oneYearAgo.toISOString());
+  } catch (cleanupError) {
+    console.error('Failed to cleanup old transactions:', cleanupError);
+  }
+}
 
 const normalizeMachines = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -10,24 +126,81 @@ const normalizeMachines = (value: unknown): string[] => {
 };
 
 export const SupabaseService = {
+  peekUsers: (): User[] | null => peekClientCache<User[]>(CACHE_KEYS.users),
+  peekParts: (): SparePart[] | null => peekClientCache<SparePart[]>(CACHE_KEYS.parts),
+  peekTransactions: (): Transaction[] | null => peekClientCache<Transaction[]>(CACHE_KEYS.transactions),
+  peekWorkingHours: (): WorkingHours[] | null => peekClientCache<WorkingHours[]>(CACHE_KEYS.workingHours),
+
   // --- Users (Profiles) ---
-  getUsers: async (): Promise<User[]> => {
+  getUsers: async (options: QueryOptions = {}): Promise<User[]> => {
+    if (!options.forceRefresh) {
+      const cachedUsers = readClientCache<User[]>(CACHE_KEYS.users, CACHE_TTL.users);
+      if (cachedUsers) {
+        return cachedUsers;
+      }
+    }
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return (data || []).map(p => ({
-      id: p.id,
-      username: p.username,
-      displayName: p.display_name,
-      role: p.role as Role,
-      isActive: p.is_active,
-      createdAt: p.created_at,
-      password: p.password,
-      imageUrl: p.image_url
-    }));
+    const users = (data || []).map((p) => mapProfile(p as Record<string, unknown>));
+    writeClientCache(CACHE_KEYS.users, users);
+    return users;
+  },
+
+  getUserById: async (id: string): Promise<User | null> => {
+    const cachedUsers = SupabaseService.peekUsers();
+    const cachedMatch = cachedUsers?.find((user) => user.id === id) || null;
+    if (cachedMatch) {
+      return cachedMatch;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw error;
+    }
+
+    const user = mapProfile(data as Record<string, unknown>);
+    const mergedUsers = [user, ...(SupabaseService.peekUsers() || []).filter((item) => item.id !== user.id)];
+    writeClientCache(CACHE_KEYS.users, mergedUsers);
+    return user;
+  },
+
+  getUserByUsername: async (username: string): Promise<User | null> => {
+    const cachedUsers = SupabaseService.peekUsers();
+    const cachedMatch = cachedUsers?.find((user) => user.username === username) || null;
+    if (cachedMatch) {
+      return cachedMatch;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('username', username)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw error;
+    }
+
+    const user = mapProfile(data as Record<string, unknown>);
+    const mergedUsers = [user, ...(SupabaseService.peekUsers() || []).filter((item) => item.id !== user.id)];
+    writeClientCache(CACHE_KEYS.users, mergedUsers);
+    return user;
   },
 
   createUser: async (user: Omit<User, 'id' | 'createdAt'>): Promise<User> => {
@@ -47,19 +220,12 @@ export const SupabaseService = {
       .single();
 
     if (error) throw error;
-    return {
-      id: data.id,
-      username: data.username,
-      displayName: data.display_name,
-      role: data.role as Role,
-      isActive: data.is_active,
-      createdAt: data.created_at,
-      password: data.password
-    };
+    invalidateClientCache(CACHE_KEYS.users);
+    return mapProfile(data as Record<string, unknown>);
   },
 
   updateUser: async (id: string, updates: Partial<User>): Promise<User> => {
-    const mappedUpdates: any = {};
+    const mappedUpdates: Record<string, string | boolean | undefined> = {};
     if (updates.username !== undefined) mappedUpdates.username = updates.username;
     if (updates.displayName !== undefined) mappedUpdates.display_name = updates.displayName;
     if (updates.role !== undefined) mappedUpdates.role = updates.role;
@@ -74,28 +240,81 @@ export const SupabaseService = {
       .single();
 
     if (error) throw error;
-    return {
-      id: data.id,
-      username: data.username,
-      displayName: data.display_name,
-      role: data.role as Role,
-      isActive: data.is_active,
-      createdAt: data.created_at,
-      password: data.password
-    };
+    invalidateClientCache(CACHE_KEYS.users);
+    return mapProfile(data as Record<string, unknown>);
   },
 
-  deleteUser: async (id: string): Promise<void> => {
-    const { error } = await supabase
+  deleteUser: async (id: string): Promise<UserDeleteResult> => {
+    const disableUser = async (reason: string): Promise<UserDeleteResult> => {
+      const { data: disabledProfile, error: disableError } = await supabase
+        .from('profiles')
+        .update({ is_active: false })
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
+
+      if (disableError) {
+        throw disableError;
+      }
+
+      if (!disabledProfile) {
+        throw new Error('Could not disable this user in Supabase. Check the UPDATE policy on the profiles table.');
+      }
+
+      invalidateClientCache(CACHE_KEYS.users);
+
+      return {
+        mode: 'disabled',
+        reason,
+      };
+    };
+
+    const { data: deletedProfiles, error } = await supabase
       .from('profiles')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
 
-    if (error) throw error;
+    if (!error && (deletedProfiles?.length || 0) > 0) {
+      invalidateClientCache(CACHE_KEYS.users);
+      return { mode: 'deleted' };
+    }
+
+    if (!error) {
+      const { data: existingProfile, error: existingProfileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (existingProfileError) {
+        throw existingProfileError;
+      }
+
+      if (!existingProfile) {
+        invalidateClientCache(CACHE_KEYS.users);
+        return { mode: 'deleted' };
+      }
+
+      return disableUser('Hard delete was blocked by the database policy, so the account was disabled instead.');
+    }
+
+    if (error.code === '23503') {
+      return disableUser('User is still referenced by historical data, so the account was disabled instead of being deleted.');
+    }
+
+    throw error;
   },
 
   // --- Parts ---
-  getParts: async (): Promise<SparePart[]> => {
+  getParts: async (options: QueryOptions = {}): Promise<SparePart[]> => {
+    if (!options.forceRefresh) {
+      const cachedParts = readClientCache<SparePart[]>(CACHE_KEYS.parts, CACHE_TTL.parts);
+      if (cachedParts) {
+        return cachedParts;
+      }
+    }
+
     const { data, error } = await supabase
       .from('spare_parts')
       .select('*')
@@ -103,29 +322,9 @@ export const SupabaseService = {
       .order('part_name', { ascending: true });
 
     if (error) throw error;
-    return (data || []).map(p => ({
-      id: p.id,
-      no: p.no,
-      partName: p.part_name,
-      partNumber: p.part_number,
-      description: p.description,
-      binLocation: p.bin_location,
-      currentStockOk: p.current_stock_ok,
-      currentStockDamaged: p.current_stock_damaged,
-      safetyStockOk: p.safety_stock_ok,
-      maxStock: p.max_stock,
-      reorderQuantity: p.reorder_quantity,
-      leadTimeDays: p.lead_time_days,
-      qrCodeValue: p.qr_code_value,
-      costCenter: p.cost_center,
-      useFor: p.use_for,
-      machines: normalizeMachines(p.machines),
-      minStock: p.min_stock || 0,
-      isActive: p.is_active,
-      imageUrl: p.image_url,
-      createdAt: p.created_at,
-      updatedAt: p.updated_at
-    }));
+    const parts = (data || []).map((p) => mapPart(p as Record<string, unknown>));
+    writeClientCache(CACHE_KEYS.parts, parts);
+    return parts;
   },
 
   createPart: async (data: Omit<SparePart, 'id' | 'createdAt' | 'updatedAt' | 'no'>): Promise<SparePart> => {
@@ -165,35 +364,14 @@ export const SupabaseService = {
       .single();
 
     if (error) throw error;
+    invalidateClientCache(CACHE_KEYS.parts);
     
-    return {
-      id: newPart.id,
-      no: newPart.no,
-      partName: newPart.part_name,
-      partNumber: newPart.part_number,
-      description: newPart.description,
-      binLocation: newPart.bin_location,
-      currentStockOk: newPart.current_stock_ok,
-      currentStockDamaged: newPart.current_stock_damaged,
-      safetyStockOk: newPart.safety_stock_ok,
-      maxStock: newPart.max_stock,
-      reorderQuantity: newPart.reorder_quantity,
-      leadTimeDays: newPart.lead_time_days,
-      qrCodeValue: newPart.qr_code_value,
-      costCenter: newPart.cost_center,
-      useFor: newPart.use_for,
-      machines: normalizeMachines(newPart.machines),
-      minStock: newPart.min_stock || 0,
-      isActive: newPart.is_active,
-      imageUrl: newPart.image_url,
-      createdAt: newPart.created_at,
-      updatedAt: newPart.updated_at
-    };
+    return mapPart(newPart as Record<string, unknown>);
   },
 
   updatePart: async (id: string, updates: Partial<SparePart>): Promise<SparePart> => {
     // Map cammelCase to snake_case for Supabase
-    const mappedUpdates: any = {};
+    const mappedUpdates: Record<string, unknown> = {};
     if (updates.partName !== undefined) mappedUpdates.part_name = updates.partName;
     if (updates.partNumber !== undefined) mappedUpdates.part_number = updates.partNumber;
     if (updates.description !== undefined) mappedUpdates.description = updates.description;
@@ -220,30 +398,9 @@ export const SupabaseService = {
       .single();
 
     if (error) throw error;
+    invalidateClientCache(CACHE_KEYS.parts);
     
-    return {
-      id: updatedPart.id,
-      no: updatedPart.no,
-      partName: updatedPart.part_name,
-      partNumber: updatedPart.part_number,
-      description: updatedPart.description,
-      binLocation: updatedPart.bin_location,
-      currentStockOk: updatedPart.current_stock_ok,
-      currentStockDamaged: updatedPart.current_stock_damaged,
-      safetyStockOk: updatedPart.safety_stock_ok,
-      maxStock: updatedPart.max_stock,
-      reorderQuantity: updatedPart.reorder_quantity,
-      leadTimeDays: updatedPart.lead_time_days,
-      qrCodeValue: updatedPart.qr_code_value,
-      costCenter: updatedPart.cost_center,
-      useFor: updatedPart.use_for,
-      machines: normalizeMachines(updatedPart.machines),
-      minStock: updatedPart.min_stock || 0,
-      isActive: updatedPart.is_active,
-      imageUrl: updatedPart.image_url,
-      createdAt: updatedPart.created_at,
-      updatedAt: updatedPart.updated_at
-    };
+    return mapPart(updatedPart as Record<string, unknown>);
   },
 
   deletePart: async (id: string): Promise<void> => {
@@ -253,6 +410,7 @@ export const SupabaseService = {
       .eq('id', id);
 
     if (error) throw error;
+    invalidateClientCache(CACHE_KEYS.parts);
   },
 
   deleteAllParts: async (): Promise<void> => {
@@ -262,6 +420,7 @@ export const SupabaseService = {
       .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows where id is not a dummy uuid
 
     if (error) throw error;
+    invalidateClientCache(CACHE_KEYS.parts);
   },
 
   checkBinLocation: async (binLocation: string): Promise<SparePart | null> => {
@@ -274,31 +433,10 @@ export const SupabaseService = {
     if (error && error.code !== 'PGRST116') throw error;
     if (!data) return null;
 
-    return {
-      id: data.id,
-      no: data.no,
-      partName: data.part_name,
-      partNumber: data.part_number,
-      description: data.description,
-      binLocation: data.bin_location,
-      currentStockOk: data.current_stock_ok,
-      currentStockDamaged: data.current_stock_damaged,
-      safetyStockOk: data.safety_stock_ok,
-      maxStock: data.max_stock,
-      reorderQuantity: data.reorder_quantity,
-      leadTimeDays: data.lead_time_days,
-      qrCodeValue: data.qr_code_value,
-      costCenter: data.cost_center,
-      useFor: data.use_for,
-      machines: normalizeMachines(data.machines),
-      minStock: data.min_stock || 0,
-      isActive: data.is_active,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
-    };
+    return mapPart(data as Record<string, unknown>);
   },
 
-  bulkCreateParts: async (parts: any[]): Promise<void> => {
+  bulkCreateParts: async (parts: Partial<SparePart>[]): Promise<void> => {
     const { error } = await supabase
       .from('spare_parts')
       .insert(parts.map((p, index) => ({
@@ -323,21 +461,17 @@ export const SupabaseService = {
       })));
 
     if (error) throw error;
+    invalidateClientCache(CACHE_KEYS.parts);
   },
 
   // --- Transactions ---
-  getTransactions: async (): Promise<Transaction[]> => {
-    // Auto-cleanup: Delete transactions older than 365 days
-    try {
-      const oneYearAgo = new Date();
-      oneYearAgo.setDate(oneYearAgo.getDate() - 365);
-      
-      await supabase
-        .from('transactions')
-        .delete()
-        .lt('created_at', oneYearAgo.toISOString());
-    } catch (cleanupError) {
-      console.error('Failed to cleanup old transactions:', cleanupError);
+  getTransactions: async (options: QueryOptions = {}): Promise<Transaction[]> => {
+    if (!options.forceRefresh) {
+      const cachedTransactions = readClientCache<Transaction[]>(CACHE_KEYS.transactions, CACHE_TTL.transactions);
+      if (cachedTransactions) {
+        void cleanupTransactionsInBackground();
+        return cachedTransactions;
+      }
     }
 
     const { data, error } = await supabase
@@ -346,23 +480,10 @@ export const SupabaseService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return (data || []).map(t => ({
-      id: t.id,
-      orderNo: t.order_no,
-      type: t.type as 'IN' | 'OUT',
-      partId: t.part_id,
-      partName: t.part_name_snapshot,
-      partNumber: t.part_number_snapshot,
-      partCondition: t.part_condition as 'OK' | 'DAMAGED',
-      quantity: t.quantity,
-      reason: t.reason,
-      workOrderNo: t.work_order_no,
-      inspectorName: t.inspector_name,
-      performedByUserId: t.performed_by_user_id,
-      performedByDisplayName: t.performed_by_display_name_snapshot,
-      performedAt: t.performed_at,
-      createdAt: t.created_at
-    }));
+    const transactions = (data || []).map((t) => mapTransaction(t as Record<string, unknown>));
+    writeClientCache(CACHE_KEYS.transactions, transactions);
+    void cleanupTransactionsInBackground();
+    return transactions;
   },
 
   createTransaction: async (
@@ -417,10 +538,6 @@ export const SupabaseService = {
     // 4. Create Transaction Record
     const orderNo = `${type}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
     
-    console.log('--- DEBUG TRANSACTION ---');
-    console.log('UserID being sent:', data.performedBy.id);
-    console.log('Username:', (data.performedBy as any).username);
-    
     const { data: tx, error: txError } = await supabase
       .from('transactions')
       .insert([{
@@ -442,29 +559,20 @@ export const SupabaseService = {
       .single();
 
     if (txError) throw txError;
+    invalidateClientCache(CACHE_KEYS.transactions);
+    invalidateClientCache(CACHE_KEYS.parts);
 
-    return {
-      id: tx.id,
-      orderNo: tx.order_no,
-      type: tx.type as 'IN' | 'OUT',
-      partId: tx.part_id,
-      partName: tx.part_name_snapshot,
-      partNumber: tx.part_number_snapshot,
-      partCondition: tx.part_condition as 'OK' | 'DAMAGED',
-      quantity: tx.quantity,
-      reason: tx.reason,
-      workOrderNo: tx.work_order_no,
-      inspectorName: tx.inspector_name,
-      performedByUserId: tx.performed_by_user_id,
-      performedByDisplayName: tx.performed_by_display_name_snapshot,
-      performedAt: tx.performed_at,
-      createdAt: tx.created_at
-    };
+    return mapTransaction(tx as Record<string, unknown>);
   },
 
-  uploadImage: async (file: Blob, fileName: string): Promise<string> => {
-    const fileExt = 'jpg';
-    const filePath = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+  uploadImage: async (file: Blob, fileName?: string): Promise<string> => {
+    const fallbackExt = 'jpg';
+    const normalizedName = fileName?.trim().replace(/\s+/g, '-');
+    const hasExtension = normalizedName ? /\.[a-z0-9]+$/i.test(normalizedName) : false;
+    const safeFileName = normalizedName
+      ? normalizedName.replace(/[^a-zA-Z0-9._-]/g, '')
+      : `${Math.random().toString(36).substring(2)}-${Date.now()}.${fallbackExt}`;
+    const filePath = hasExtension ? safeFileName : `${safeFileName}.${fallbackExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from('parts')
@@ -483,7 +591,6 @@ export const SupabaseService = {
     try {
       if (!url) return;
       // Extract file path from public URL
-      // URL format: .../storage/v1/object/public/parts/filename.jpg
       const parts = url.split('/parts/');
       if (parts.length < 2) return;
       const filePath = parts[1];
@@ -510,7 +617,59 @@ export const SupabaseService = {
         }
     } catch (error) {
         console.error("Error deleting images:", error);
-        // We don't throw here to avoid blocking the main overwrite process if storage cleanup fails
     }
+  },
+
+  // --- Working Hours ---
+  getWorkingHours: async (options: QueryOptions = {}): Promise<WorkingHours[]> => {
+    if (!options.forceRefresh) {
+      const cachedWorkingHours = readClientCache<WorkingHours[]>(CACHE_KEYS.workingHours, CACHE_TTL.workingHours);
+      if (cachedWorkingHours) {
+        return cachedWorkingHours;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('working_hours')
+      .select('*')
+      .order('full_name', { ascending: true });
+
+    if (error) throw error;
+    const workingHours = (data || []).map((row) => mapWorkingHours(row as Record<string, unknown>));
+    writeClientCache(CACHE_KEYS.workingHours, workingHours);
+    return workingHours;
+  },
+
+  bulkCreateWorkingHours: async (rows: Omit<WorkingHours, 'id' | 'createdAt'>[]): Promise<void> => {
+    // Delete all first
+    const { error: deleteError } = await supabase
+      .from('working_hours')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    if (deleteError) throw deleteError;
+
+    // Insert new
+    const { error: insertError } = await supabase
+      .from('working_hours')
+      .insert(rows.map(row => ({
+        msnv: row.msnv,
+        full_name: row.fullName,
+        department: row.department,
+        hours: row.days
+      })));
+
+    if (insertError) throw insertError;
+    invalidateClientCache(CACHE_KEYS.workingHours);
+  },
+
+  deleteAllWorkingHours: async (): Promise<void> => {
+    const { error } = await supabase
+      .from('working_hours')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (error) throw error;
+    invalidateClientCache(CACHE_KEYS.workingHours);
   }
 };

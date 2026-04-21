@@ -19,7 +19,7 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[700px] flex flex-col max-h-[90vh]">
+      <DialogContent className="flex max-h-[90dvh] flex-col sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Package className="h-6 w-6 text-primary" />
@@ -79,7 +79,7 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                     {/* Description */}
                     <div>
                         <h4 className="text-sm font-semibold text-gray-900 mb-1">Description</h4>
-                        <div className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-md border min-h-[100px] whitespace-pre-wrap wrap-break-word">
+                        <div className="min-h-[100px] rounded-md border bg-gray-50 p-3 text-sm leading-relaxed text-gray-600 whitespace-pre-wrap break-words">
                             {part.description || 'No description provided.'}
                         </div>
                     </div>
@@ -89,7 +89,7 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                         <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                             <Activity className="h-4 w-4 text-blue-500" /> Stock Status
                         </h4>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                              <div className="p-3 rounded-md border bg-green-50/50 border-green-100">
                                 <p className="text-xs text-green-700 font-medium uppercase">Using / OK</p>
                                 <p className="text-2xl font-bold text-green-800">{part.currentStockOk}</p>
@@ -102,7 +102,7 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                     </div>
 
                     {/* Metadata Grid */}
-                     <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
+                     <div className="grid grid-cols-1 gap-x-2 gap-y-4 text-sm sm:grid-cols-2">
                          <div className="flex flex-col">
                              <span className="text-muted-foreground text-xs flex items-center gap-1"><MapPin className="h-3 w-3" /> Bin Location</span>
                              <span className="font-medium">{part.binLocation || 'N/A'}</span>

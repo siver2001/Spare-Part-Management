@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 export function ProtectedLayout({ children, requiredRoles = [] }: { children: React.ReactNode, requiredRoles?: string[] }) {
   const { user, isLoading } = useAuth();
   const [collapsed, setCollapsed] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -33,9 +34,17 @@ export function ProtectedLayout({ children, requiredRoles = [] }: { children: Re
   if (requiredRoles.length > 0 && !requiredRoles.includes(user.role)) {
     return (
         <div className="flex min-h-screen bg-gray-100">
-            <AppSidebar collapsed={collapsed} onToggle={toggleSidebar} />
+            <AppSidebar
+              collapsed={collapsed}
+              onDesktopToggle={toggleSidebar}
+              mobileOpen={mobileMenuOpen}
+              onMobileOpenChange={setMobileMenuOpen}
+            />
             <div className="flex-1 flex flex-col">
-                <AppHeader onToggle={toggleSidebar} />
+                <AppHeader
+                  onDesktopToggle={toggleSidebar}
+                  onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                />
                 <div className="flex-1 flex items-center justify-center p-4 text-center">
                     <div className="max-w-md bg-white p-8 rounded shadow">
                         <h2 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h2>
@@ -49,10 +58,18 @@ export function ProtectedLayout({ children, requiredRoles = [] }: { children: Re
 
   return (
     <div className="flex min-h-screen bg-linear-to-br from-indigo-50 via-white to-cyan-50 dark:from-slate-900 dark:to-slate-800">
-      <AppSidebar collapsed={collapsed} onToggle={toggleSidebar} />
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <AppHeader onToggle={toggleSidebar} />
-        <main className="flex-1 overflow-auto p-6 transition-all duration-300">
+      <AppSidebar
+        collapsed={collapsed}
+        onDesktopToggle={toggleSidebar}
+        mobileOpen={mobileMenuOpen}
+        onMobileOpenChange={setMobileMenuOpen}
+      />
+      <div className="flex min-h-dvh flex-1 flex-col overflow-hidden">
+        <AppHeader
+          onDesktopToggle={toggleSidebar}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
+        />
+        <main className="flex-1 overflow-auto p-3 transition-all duration-300 sm:p-4 lg:p-6">
           {children}
         </main>
       </div>

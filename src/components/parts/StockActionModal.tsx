@@ -69,10 +69,10 @@ export function StockActionModal({ isOpen, onClose, type, part, onSuccess }: Sto
           <DialogTitle>{type === 'IN' ? 'Stock In' : 'Stock Out'} - {part.partName}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Condition</Label>
+          <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+            <Label className="sm:text-right">Condition</Label>
             <Select value={condition} onValueChange={(v: any) => setCondition(v)}>
-              <SelectTrigger className="col-span-3">
+              <SelectTrigger className="sm:col-span-3">
                 <SelectValue placeholder="Select condition" />
               </SelectTrigger>
               <SelectContent>
@@ -81,44 +81,44 @@ export function StockActionModal({ isOpen, onClose, type, part, onSuccess }: Sto
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Quantity</Label>
+          <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+            <Label className="sm:text-right">Quantity</Label>
             <Input 
               type="number" 
               value={quantity} 
               onChange={(e) => setQuantity(Number(e.target.value))} 
-              className="col-span-3" 
+              className="sm:col-span-3" 
               min={1}
             />
           </div>
           {type === 'OUT' && (
-             <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Work Order</Label>
+             <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label className="sm:text-right">Work Order</Label>
                 <Input 
                   value={workOrderNo} 
                   onChange={(e) => setWorkOrderNo(e.target.value)} 
-                  className="col-span-3" 
+                  className="sm:col-span-3" 
                   placeholder="Optional"
                 />
              </div>
           )}
           {type === 'IN' && (
-             <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Inspector</Label>
+             <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label className="sm:text-right">Inspector</Label>
                 <Input 
                   value={inspectorName} 
                   onChange={(e) => setInspectorName(e.target.value)} 
-                  className="col-span-3" 
+                  className="sm:col-span-3" 
                   placeholder="Optional"
                 />
              </div>
           )}
-          <div className="grid grid-cols-4 items-center gap-4">
-             <Label className="text-right">Reason</Label>
+          <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+             <Label className="sm:text-right">Reason</Label>
              <Input 
                value={reason} 
                onChange={(e) => setReason(e.target.value)} 
-               className="col-span-3" 
+               className="sm:col-span-3" 
                placeholder="Optional"
              />
           </div>

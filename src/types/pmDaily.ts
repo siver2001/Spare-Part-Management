@@ -1,5 +1,5 @@
 export type Priority = 'P0 (Urgent)' | 'P1 (High)' | 'P2 (Normal)' | 'P3 (Low)';
-export type Status = 'Planned' | 'In Progress' | 'Done' | 'Blocked' | 'Skipped';
+export type Status = 'Planned' | 'Progress 25%' | 'Progress 50%' | 'Progress 75%' | 'Done';
 export type ReasonTag = 'Safety' | 'Downtime risk' | 'Quality risk' | 'Audit';
 
 export interface DailyAssignment {

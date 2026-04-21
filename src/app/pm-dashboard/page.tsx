@@ -451,7 +451,7 @@ export default function PmDashboardPage() {
 
     return (
       <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card className="overflow-hidden border-0 bg-linear-to-br from-cyan-500 via-sky-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20">
             <CardHeader className="pb-2">
               <CardDescription className="text-cyan-50">Total Machines</CardDescription>
@@ -487,14 +487,19 @@ export default function PmDashboardPage() {
         </div>
 
         <Card className={cn('border-0 bg-linear-to-r shadow-md', workshopTheme.shell)}>
-          <CardContent className="pt-6 space-y-4">
+          <CardContent className="space-y-4 pt-4 sm:pt-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Button
                   size="sm"
                   variant={filter.selectedWeek === currentWeek ? 'default' : 'outline'}
                   onClick={() => setWorkshopFilter(workshop, { selectedWeek: currentWeek })}
-                  className={filter.selectedWeek === currentWeek ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'border-white/80 bg-white/80 text-slate-700 hover:bg-white'}
+                  className={cn(
+                    'justify-start sm:justify-center',
+                    filter.selectedWeek === currentWeek
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                      : 'border-white/80 bg-white/80 text-slate-700 hover:bg-white'
+                  )}
                 >
                   <CalendarClock className="mr-2 h-4 w-4" />
                   Current Week
@@ -503,7 +508,12 @@ export default function PmDashboardPage() {
                   size="sm"
                   variant={filter.monthFilter === String(currentMonth) ? 'default' : 'outline'}
                   onClick={() => setWorkshopFilter(workshop, { monthFilter: String(currentMonth) })}
-                  className={filter.monthFilter === String(currentMonth) ? 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-500/20' : 'border-white/80 bg-white/80 text-slate-700 hover:bg-white'}
+                  className={cn(
+                    'justify-start sm:justify-center',
+                    filter.monthFilter === String(currentMonth)
+                      ? 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-500/20'
+                      : 'border-white/80 bg-white/80 text-slate-700 hover:bg-white'
+                  )}
                 >
                   <CalendarCheck2 className="mr-2 h-4 w-4" />
                   Current Month
@@ -518,12 +528,22 @@ export default function PmDashboardPage() {
                       selectedWeek: currentWeek,
                     })
                   }
-                  className={filter.monthFilter === 'all' && !filter.search ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20' : 'border-white/80 bg-white/80 text-slate-700 hover:bg-white'}
+                  className={cn(
+                    'justify-start sm:justify-center',
+                    filter.monthFilter === 'all' && !filter.search
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
+                      : 'border-white/80 bg-white/80 text-slate-700 hover:bg-white'
+                  )}
                 >
                   Reset Filter
                 </Button>
               </div>
-              <Button onClick={() => openFileDialog(workshop)} disabled={isImporting} variant="outline" className="border-white/80 bg-white/80 text-slate-700 hover:bg-white">
+              <Button
+                onClick={() => openFileDialog(workshop)}
+                disabled={isImporting}
+                variant="outline"
+                className="w-full border-white/80 bg-white/80 text-slate-700 hover:bg-white sm:w-auto"
+              >
                 {isImporting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -670,7 +690,77 @@ export default function PmDashboardPage() {
         </Card>
 
         <div className="grid gap-4 xl:grid-cols-4">
-          <Card className="xl:col-span-3 overflow-hidden border-0 bg-white/95 shadow-md shadow-slate-200/70">
+          <div className="xl:col-span-3 space-y-4">
+            <Card className="overflow-hidden border-0 bg-white/95 shadow-md shadow-slate-200/70 md:hidden">
+              <CardHeader className="border-b border-violet-100 bg-linear-to-r from-violet-50 via-fuchsia-50 to-pink-50 pb-2">
+                <CardTitle className="text-lg text-slate-900">Weekly Schedule Snapshot</CardTitle>
+                <CardDescription>
+                  Mobile-friendly summary for the selected filters. Open Weekly To-do for quick action.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {visibleMachines.length === 0 && (
+                  <div className="rounded-lg border border-dashed p-4 text-sm text-slate-500">
+                    No machine found for current filters.
+                  </div>
+                )}
+                {visibleMachines.slice(0, 10).map((machine) => {
+                  const plannedWeekSet = new Set(machine.plannedWeeks);
+                  const nextPmWeek =
+                    machine.plannedWeeks.find(
+                      (week) => getWeekTiming(week, data.year, currentYear, currentWeek) !== 'past'
+                    ) ?? null;
+                  const selectedWeekPlanned = plannedWeekSet.has(filter.selectedWeek);
+                  const selectedTaskForMachine =
+                    selectedWeekPlanned
+                      ? data.tasks.find((task) => task.idMachine === machine.idMachine && task.week === filter.selectedWeek) || null
+                      : null;
+
+                  return (
+                    <button
+                      key={`mobile-${machine.idMachine}-${machine.equipmentName}`}
+                      type="button"
+                      onClick={() => selectedTaskForMachine && setSelectedTask(selectedTaskForMachine)}
+                      className={cn(
+                        'w-full rounded-2xl border p-4 text-left shadow-sm transition-all',
+                        selectedWeekPlanned
+                          ? 'border-amber-300 bg-linear-to-r from-amber-50 to-orange-50'
+                          : 'border-slate-200 bg-white'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{machine.idMachine}</p>
+                          <p className="truncate text-xs text-slate-600">{machine.equipmentName}</p>
+                        </div>
+                        <Badge className={selectedWeekPlanned ? 'bg-amber-500 text-white hover:bg-amber-500' : 'bg-slate-100 text-slate-700 hover:bg-slate-100'}>
+                          {selectedWeekPlanned ? `Week ${filter.selectedWeek}` : `Next ${nextPmWeek ? `W${nextPmWeek}` : 'N/A'}`}
+                        </Badge>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-600">
+                        <div>
+                          <p className="uppercase tracking-wide text-slate-500">Selected Week</p>
+                          <p className="mt-1 font-semibold text-slate-900">{selectedWeekPlanned ? 'Planned' : 'No PM'}</p>
+                        </div>
+                        <div>
+                          <p className="uppercase tracking-wide text-slate-500">Month {monthlyFocus}</p>
+                          <p className="mt-1 font-semibold text-slate-900">
+                            {machine.plannedWeeks.filter((week) => weekMonthMap[week - 1] === monthlyFocus).length} PM
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {visibleMachines.length > 10 && (
+                  <p className="text-xs text-slate-500">Showing first 10 machines on mobile. Use filters to narrow the list.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="hidden overflow-hidden border-0 bg-white/95 shadow-md shadow-slate-200/70 md:block">
             <CardHeader className="border-b border-violet-100 bg-linear-to-r from-violet-50 via-fuchsia-50 to-pink-50 pb-2">
               <CardTitle className="text-lg text-slate-900">Detailed PM Board (Week 1-52)</CardTitle>
               <CardDescription>
@@ -758,6 +848,7 @@ export default function PmDashboardPage() {
               </ScrollArea>
             </CardContent>
           </Card>
+          </div>
 
           <Card className="overflow-hidden border-0 bg-white/95 shadow-md shadow-slate-200/70">
             <CardHeader className="border-b border-amber-100 bg-linear-to-r from-amber-50 via-orange-50 to-rose-50 pb-2">
@@ -821,7 +912,7 @@ export default function PmDashboardPage() {
   return (
     <ProtectedLayout>
       <div className="space-y-6">
-        <div className="overflow-hidden rounded-2xl border-0 bg-linear-to-r from-slate-900 via-indigo-900 to-sky-900 p-6 shadow-xl shadow-indigo-900/20">
+        <div className="overflow-hidden rounded-2xl border-0 bg-linear-to-r from-slate-900 via-indigo-900 to-sky-900 p-4 shadow-xl shadow-indigo-900/20 sm:p-6">
           <h1 className="text-2xl font-bold tracking-tight text-white">PM Schedule Dashboard</h1>
           <p className="mt-1 text-sm text-slate-200">
             Monitor periodic maintenance plans for Foaming and Insole. Import each workshop schedule to view 52-week
@@ -860,7 +951,7 @@ export default function PmDashboardPage() {
           onValueChange={(value) => setActiveWorkshop(value as PMWorkshopType)}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-linear-to-r from-slate-100 via-cyan-50 to-orange-50 p-1">
+          <TabsList className="grid w-full grid-cols-1 rounded-2xl bg-linear-to-r from-slate-100 via-cyan-50 to-orange-50 p-1 sm:grid-cols-2">
             {WORKSHOPS.map((workshop) => (
               <TabsTrigger key={workshop} value={workshop} className="rounded-xl font-semibold data-[state=active]:bg-white data-[state=active]:shadow-md">
                 {WORKSHOP_META[workshop].label}
@@ -874,7 +965,7 @@ export default function PmDashboardPage() {
       </div>
 
       <Dialog open={!!previewData} onOpenChange={(open) => !open && setPreviewData(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border-0 bg-white">
+        <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden border-0 bg-white sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle className="text-slate-900">Import Preview Report</DialogTitle>
             <DialogDescription className="text-slate-600">
@@ -903,7 +994,7 @@ export default function PmDashboardPage() {
               )}
 
               {previewData.preview.errors.length > 0 && (
-                <div className="border rounded-md">
+                <div className="overflow-hidden rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-slate-50 hover:bg-slate-50">
@@ -938,12 +1029,12 @@ export default function PmDashboardPage() {
             </div>
           )}
 
-          <DialogFooter className="mt-2 border-t pt-4">
-            <Button variant="outline" onClick={() => setPreviewData(null)}>Cancel</Button>
+          <DialogFooter className="pb-safe mt-2 border-t pt-4">
+            <Button variant="outline" onClick={() => setPreviewData(null)} className="w-full sm:w-auto">Cancel</Button>
             <Button 
               disabled={!previewData?.preview.isValid} 
               onClick={confirmImport}
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 sm:w-auto"
             >
               Confirm Import
             </Button>
@@ -965,7 +1056,7 @@ export default function PmDashboardPage() {
                 <SheetDescription>{selectedTask.equipmentName}</SheetDescription>
               </SheetHeader>
 
-              <div className="py-6 space-y-6">
+              <div className="space-y-6 px-4 py-6 sm:px-0">
                 <div>
                   <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
                     <ClipboardList className="h-4 w-4 text-slate-500" />
@@ -1002,8 +1093,8 @@ export default function PmDashboardPage() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-3 space-y-3 rounded-xl border border-dashed border-indigo-200 bg-white/70 p-3">
-                    <div className="flex gap-2">
+                    <div className="mt-3 space-y-3 rounded-xl border border-dashed border-indigo-200 bg-white/70 p-3">
+                     <div className="flex flex-col gap-2 sm:flex-row">
                       <Input
                         value={newChecklistText}
                         onChange={(event) => setNewChecklistText(event.target.value)}
@@ -1016,7 +1107,7 @@ export default function PmDashboardPage() {
                         placeholder="Them hang muc checklist neu can"
                         className="border-white/80 bg-white"
                       />
-                      <Button type="button" onClick={handleAddChecklistItem} className="bg-indigo-600 hover:bg-indigo-700">
+                       <Button type="button" onClick={handleAddChecklistItem} className="w-full bg-indigo-600 hover:bg-indigo-700 sm:w-auto">
                         <Plus className="mr-2 h-4 w-4" />
                         Add
                       </Button>
@@ -1063,7 +1154,7 @@ export default function PmDashboardPage() {
 
               </div>
 
-              <div className="pt-4 border-t sticky bottom-0 bg-white space-y-3 pb-6">
+              <div className="pb-safe sticky bottom-0 space-y-3 border-t bg-white/95 pt-4 backdrop-blur">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500 flex items-center gap-1"><Clock className="h-4 w-4" /> Time spent:</span>
                   <div className="flex items-center gap-2 bg-slate-100 rounded-md p-1 px-3">

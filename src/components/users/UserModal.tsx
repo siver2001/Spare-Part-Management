@@ -72,18 +72,18 @@ export function UserModal({ isOpen, onClose, user, onSuccess }: UserModalProps) 
           <DialogTitle>{user ? 'Edit User' : 'Create User'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-             <Label className="text-right">Username</Label>
-             <Input value={username} onChange={(e) => setUsername(e.target.value)} className="col-span-3" disabled={!!user} />
+          <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+             <Label className="sm:text-right">Username</Label>
+             <Input value={username} onChange={(e) => setUsername(e.target.value)} className="sm:col-span-3" disabled={!!user} />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-             <Label className="text-right">Display Name</Label>
-             <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="col-span-3" />
+          <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+             <Label className="sm:text-right">Display Name</Label>
+             <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="sm:col-span-3" />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-             <Label className="text-right">Role</Label>
+          <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+             <Label className="sm:text-right">Role</Label>
              <Select value={role} onValueChange={(val: Role) => setRole(val)}>
-               <SelectTrigger className="col-span-3">
+               <SelectTrigger className="sm:col-span-3">
                  <SelectValue />
                </SelectTrigger>
                <SelectContent>
@@ -93,13 +93,13 @@ export function UserModal({ isOpen, onClose, user, onSuccess }: UserModalProps) 
                </SelectContent>
              </Select>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-             <Label className="text-right">Active</Label>
+          <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+             <Label className="sm:text-right">Active</Label>
              <Checkbox checked={isActive} onCheckedChange={(c) => setIsActive(!!c)} />
           </div>
-          <div className="grid grid-cols-4 items-start gap-4">
-             <Label className="text-right pt-2">Password</Label>
-             <div className="col-span-3 relative">
+          <div className="grid gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
+             <Label className="pt-2 sm:text-right">Password</Label>
+             <div className="relative sm:col-span-3">
                  <Input 
                     type={showPassword ? "text" : "password"} 
                     value={password} 

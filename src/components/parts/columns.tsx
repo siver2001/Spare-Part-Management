@@ -10,6 +10,7 @@ import { StockActionModal } from './StockActionModal';
 import { EditPartModal } from './EditPartModal';
 import { PartDetailsModal } from './PartDetailsModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,37 +21,46 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 // Cell Component for Actions to manage ModalState
-const ActionCell = ({
+export function PartActions({
   part,
   refreshData,
   machineOptions,
+  layout = 'table',
 }: {
   part: SparePart;
   refreshData: () => void;
   machineOptions: string[];
-}) => {
+  layout?: 'table' | 'card';
+}) {
   const [modalOpen, setModalOpen] = useState<'IN' | 'OUT' | 'EDIT' | 'VIEW' | null>(null);
   const { user } = useAuth();
 
   const canEdit = user && (user.role === 'ADMIN' || user.role === 'POWER_USER');
+  const isCardLayout = layout === 'card';
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className={cn('flex flex-wrap items-center gap-2', isCardLayout && 'grid grid-cols-2')}>
          <Button 
           variant="outline" 
           size="sm" 
-          className="h-8 px-2 text-indigo-600 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-600 hover:text-white shadow-sm transition-all group"
+          className={cn(
+            'text-indigo-600 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-600 hover:text-white shadow-sm transition-all group',
+            isCardLayout ? 'col-span-2 h-9 justify-center px-3' : 'h-8 px-2'
+          )}
           onClick={() => setModalOpen('VIEW')}
         >
           <Eye className="mr-1.5 h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
           <span className="text-xs font-bold">View</span>
         </Button>
-        <div className="h-4 w-px bg-gray-200" />
+        {!isCardLayout && <div className="h-4 w-px bg-gray-200" />}
         <Button 
           variant="outline" 
           size="sm" 
-          className="h-8 px-2 text-green-600 border-green-200 hover:bg-green-50"
+          className={cn(
+            'text-green-600 border-green-200 hover:bg-green-50',
+            isCardLayout ? 'h-9 justify-center px-3' : 'h-8 px-2'
+          )}
           onClick={() => setModalOpen('IN')}
         >
           <ArrowDownCircle className="mr-1 h-3 w-3" />
@@ -59,7 +69,10 @@ const ActionCell = ({
         <Button 
           variant="outline" 
           size="sm" 
-          className="h-8 px-2 text-orange-600 border-orange-200 hover:bg-orange-50"
+          className={cn(
+            'text-orange-600 border-orange-200 hover:bg-orange-50',
+            isCardLayout ? 'h-9 justify-center px-3' : 'h-8 px-2'
+          )}
           onClick={() => setModalOpen('OUT')}
         >
           <ArrowUpCircle className="mr-1 h-3 w-3" />
@@ -67,20 +80,27 @@ const ActionCell = ({
         </Button>
         {canEdit && (
             <Button 
-            variant="ghost" 
+            variant={isCardLayout ? 'outline' : 'ghost'} 
             size="sm" 
-            className="h-8 w-8 p-0 ml-1 text-gray-500 hover:text-gray-900"
+            className={cn(
+              'text-gray-500 hover:text-gray-900',
+              isCardLayout ? 'h-9 justify-center px-3' : 'ml-1 h-8 w-8 p-0'
+            )}
             onClick={() => setModalOpen('EDIT')}
             title="Edit"
           >
             <Edit className="h-4 w-4" />
+            {isCardLayout && <span>Edit</span>}
           </Button>
         )}
         {(user?.role === 'ADMIN' || user?.role === 'POWER_USER') && (
            <Button 
-             variant="ghost" 
+             variant={isCardLayout ? 'outline' : 'ghost'} 
              size="sm" 
-             className="h-8 w-8 p-0 ml-1 text-red-400 hover:text-red-700 hover:bg-red-50"
+             className={cn(
+               'text-red-400 hover:text-red-700 hover:bg-red-50',
+               isCardLayout ? 'h-9 justify-center border-red-200 px-3' : 'ml-1 h-8 w-8 p-0'
+             )}
              onClick={() => {
                 if(confirm('Are you sure you want to delete this part? This cannot be undone.')) {
                    import('@/services/supabaseService').then(({SupabaseService}) => {
@@ -92,7 +112,8 @@ const ActionCell = ({
              }}
              title="Delete"
            >
-             <Trash2 className="h-4 w-4" /> 
+             <Trash2 className="h-4 w-4" />
+             {isCardLayout && <span>Delete</span>}
            </Button>
         )}
       </div>
@@ -133,7 +154,7 @@ const ActionCell = ({
       )}
     </>
   );
-};
+}
 
 // Filter Header Component
 const ColumnHeaderWithFilter = ({ column, title, options, hideSort }: { column: any, title: string, options?: string[], hideSort?: boolean }) => {
@@ -345,7 +366,7 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
     id: 'actions',
     header: 'Actions',
     cell: ({ row }) => (
-      <ActionCell
+      <PartActions
         part={row.original}
         refreshData={refreshData}
         machineOptions={machineFilterOptions}

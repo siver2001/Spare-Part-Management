@@ -8,6 +8,7 @@ export interface User {
   isActive: boolean;
   createdAt: string; // ISO date string
   password?: string; // Mock password
+  imageUrl?: string;
 }
 
 export interface SparePart {
@@ -49,8 +50,17 @@ export interface Transaction {
   reason?: string;
   workOrderNo?: string;
   inspectorName?: string;
-  performedByUserId: string;
+  performedByUserId: string | null;
   performedByDisplayName: string; // Snapshot
   performedAt: string;
+  createdAt: string;
+}
+
+export interface WorkingHours {
+  id: string;
+  msnv: string;
+  fullName: string;
+  department: string;
+  days: Record<string, string | number>;
   createdAt: string;
 }

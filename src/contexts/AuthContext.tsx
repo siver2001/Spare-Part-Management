@@ -25,9 +25,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
         try {
-          // Verify user still exists in DB
-          const users = await SupabaseService.getUsers();
-          const exists = users.find(u => u.id === parsedUser.id);
+          const exists = await SupabaseService.getUserById(parsedUser.id);
           if (exists) {
             setUser(exists);
             localStorage.setItem('session_user', JSON.stringify(exists));
@@ -49,9 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (username: string) => {
     setIsLoading(true);
     try {
-      // Login logic: find user by username in Supabase profiles
-      const users = await SupabaseService.getUsers();
-      const foundUser = users.find((u) => u.username === username);
+      const foundUser = await SupabaseService.getUserByUsername(username);
 
       if (foundUser) {
         if (!foundUser.isActive) {

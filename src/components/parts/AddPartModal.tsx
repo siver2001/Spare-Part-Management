@@ -78,7 +78,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
     }
   };
 
-  const handleChange = (field: keyof SparePart, value: any) => {
+  const handleChange = (field: keyof SparePart, value: SparePart[keyof SparePart]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -113,7 +113,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
       await SupabaseService.createPart({
           ...formData,
           imageUrl
-      } as any);
+      } as Omit<SparePart, 'id' | 'no' | 'createdAt' | 'updatedAt'>);
       
       toast.success('Part created successfully');
       setFormData({
@@ -128,8 +128,8 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
       setImageFile(null);
       onSuccess();
       onClose();
-    } catch (error: any) {
-      toast.error(error.message || 'Creation failed');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Creation failed');
     } finally {
       setLoading(false);
     }
@@ -137,16 +137,17 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent onPaste={handlePaste} className="sm:max-w-[700px] h-[85vh] flex flex-col">
+      <DialogContent onPaste={handlePaste} className="flex h-[90dvh] flex-col sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>Add New Spare Part</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-2 py-2">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-1 py-2 sm:px-2">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
              {/* Left Column - Image & QR */}
              <div className="col-span-1 space-y-4">
                 <div className="border-2 border-dashed border-gray-300 rounded-xl aspect-square flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors relative overflow-hidden group">
                     {imagePreview ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                     ) : (
                         <div className="text-center p-4">
@@ -209,7 +210,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
                         />
                      </div>
                      
-                     <div className="grid grid-cols-2 gap-4">
+                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                            <Label>Cost Center</Label>
                            <Input value={formData.costCenter || ''} onChange={(e) => handleChange('costCenter', e.target.value)} placeholder="e.g. CC-001" />
@@ -220,7 +221,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
                         </div>
                      </div>
 
-                     <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                            <Label>Bin Location</Label>
                            <Input value={formData.binLocation || ''} onChange={(e) => handleBinChange(e.target.value)} placeholder="e.g. A-01" />
@@ -233,7 +234,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
 
                      <div className="bg-gray-50 p-3 rounded-lg border space-y-3">
                        <Label className="text-sm font-semibold">Stock Management</Label>
-                       <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <div>
                               <Label className="text-xs text-muted-foreground">Initial OK</Label>
                               <Input type="number" min={0} value={formData.currentStockOk || 0} onChange={(e) => handleChange('currentStockOk', Number(e.target.value))} />
@@ -244,7 +245,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
                           </div>
                        </div>
                        
-                       <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                            <div>
                                <Label className="text-xs text-muted-foreground">Min Stock</Label>
                                <Input type="number" className="h-8 text-sm" value={formData.minStock || 0} onChange={(e) => handleChange('minStock', Number(e.target.value))} />
