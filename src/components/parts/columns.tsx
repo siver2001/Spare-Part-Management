@@ -1,6 +1,6 @@
 'use client';
 
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, Column } from '@tanstack/react-table';
 import { SparePart } from '@/types';
 import { Button } from '@/components/ui/button';
 import { ArrowUpDown, ArrowDownCircle, ArrowUpCircle, Edit, QrCode, Trash2, Filter, Eye } from 'lucide-react';
@@ -157,7 +157,7 @@ export function PartActions({
 }
 
 // Filter Header Component
-const ColumnHeaderWithFilter = ({ column, title, options, hideSort }: { column: any, title: string, options?: string[], hideSort?: boolean }) => {
+const ColumnHeaderWithFilter = ({ column, title, options, hideSort }: { column: Column<SparePart, unknown>, title: string, options?: string[], hideSort?: boolean }) => {
     return (
         <div className="flex items-center space-x-2">
             {!hideSort ? (

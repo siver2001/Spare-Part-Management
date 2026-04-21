@@ -185,7 +185,7 @@ export default function PmDailyPlannerPage() {
   // Form State
   const [formData, setFormData] = useState({
     taskDate: '',
-    assignee: '',
+    assignees: [] as string[],
     workContent: '',
     priority: 'P2 (Normal)' as Priority,
     status: 'Planned' as Status,
@@ -302,7 +302,7 @@ export default function PmDailyPlannerPage() {
     setEditingTask(null);
     setFormData({
       taskDate: selectedDateStr,
-      assignee: '',
+      assignees: [],
       workContent: '',
       priority: 'P2 (Normal)',
       status: 'Planned',
@@ -318,7 +318,7 @@ export default function PmDailyPlannerPage() {
     setEditingTask(task);
     setFormData({
       taskDate: task.date,
-      assignee: task.assignee || '',
+      assignees: task.assignees || [],
       workContent: task.workContent,
       priority: task.priority,
       status: task.status,
@@ -376,21 +376,21 @@ export default function PmDailyPlannerPage() {
   }, [users, workingHours, assignmentDate, formData.startTime, formData.stopTime]);
 
   useEffect(() => {
-    if (!formData.assignee) {
+    if (formData.assignees.length === 0) {
       return;
     }
 
-    const assigneeStillValid = filteredUsersByShift.some(
-      (item) => item.displayName === formData.assignee
+    const validAssignees = formData.assignees.filter((name) =>
+      filteredUsersByShift.some((u) => u.displayName === name)
     );
 
-    if (!assigneeStillValid) {
+    if (validAssignees.length !== formData.assignees.length) {
       setFormData((current) => ({
         ...current,
-        assignee: '',
+        assignees: validAssignees,
       }));
     }
-  }, [filteredUsersByShift, formData.assignee]);
+  }, [filteredUsersByShift, formData.assignees]);
 
   const handleSave = async () => {
     if (!formData.workContent) {
@@ -398,13 +398,13 @@ export default function PmDailyPlannerPage() {
       return;
     }
 
-    if (formData.assignee) {
-      const assigneeIsAllowed = filteredUsersByShift.some(
-        (item) => item.displayName === formData.assignee
+    if (formData.assignees.length > 0) {
+      const allAllowed = formData.assignees.every((name) =>
+        filteredUsersByShift.some((u) => u.displayName === name)
       );
 
-      if (!assigneeIsAllowed) {
-        toast.error("Assignee must exist in working hours and be on shift for the selected date/time.");
+      if (!allAllowed) {
+        toast.error("Some assignees are not scheduled or don't match the selected time range.");
         return;
       }
     }
@@ -412,7 +412,7 @@ export default function PmDailyPlannerPage() {
     const task: DailyAssignment = {
       id: editingTask?.id || uuidv4(),
       date: formData.taskDate || selectedDateStr,
-      assignee: formData.assignee,
+      assignees: formData.assignees,
       workContent: formData.workContent,
       priority: formData.priority,
       status: formData.status,
@@ -498,7 +498,7 @@ export default function PmDailyPlannerPage() {
             workContent: checklistSummary ? `${baseWorkContent} | Checklist: ${checklistSummary}` : baseWorkContent,
             date: taskDate,
             startTime: '08:00',
-            assignee: '',
+            assignees: [],
             priority: 'P2 (Normal)' as Priority,
             status: 'Planned' as Status,
             checklist: activeChecklist.map((item) => ({ text: item.text, checked: false })),
@@ -573,7 +573,7 @@ export default function PmDailyPlannerPage() {
   return (
     <ProtectedLayout>
       <div className="space-y-6">
-        <header className="flex flex-col gap-4 rounded-2xl border-0 bg-linear-to-r from-slate-900 via-indigo-900 to-fuchsia-900 p-4 shadow-xl shadow-indigo-900/20 md:flex-row md:items-center md:justify-between sm:p-6">
+        <header className="flex flex-col gap-3 rounded-xl border-0 bg-linear-to-r from-slate-900 via-indigo-900 to-fuchsia-900 p-3 shadow-xl shadow-indigo-900/20 md:flex-row md:items-center md:justify-between sm:p-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white">Monthly Planner</h1>
             <p className="text-sm text-slate-200">Plan and track daily PM assignments for {mounted && date ? format(date, 'MMMM yyyy') : ''}</p>
@@ -611,56 +611,24 @@ export default function PmDailyPlannerPage() {
         </header>
 
         {/* Stats Dashboard */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-7">
-            <Card className="border-0 bg-white shadow-sm overflow-hidden">
-                <div className="bg-slate-500 h-1 w-full" />
-                <CardContent className="p-4 pt-3">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Tasks</p>
-                    <p className="text-2xl font-bold text-slate-900">{monthStats.total}</p>
-                </CardContent>
-            </Card>
-            <Card className="border-0 bg-white shadow-sm overflow-hidden">
-                <div className="bg-red-500 h-1 w-full" />
-                <CardContent className="p-4 pt-3">
-                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">P0 Urgent</p>
-                    <p className="text-2xl font-bold text-slate-900">{monthStats.p0}</p>
-                </CardContent>
-            </Card>
-            <Card className="border-0 bg-white shadow-sm overflow-hidden">
-                <div className="bg-orange-500 h-1 w-full" />
-                <CardContent className="p-4 pt-3">
-                    <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">P1 High</p>
-                    <p className="text-2xl font-bold text-slate-900">{monthStats.p1}</p>
-                </CardContent>
-            </Card>
-            <Card className="border-0 bg-white shadow-sm overflow-hidden">
-                <div className="bg-blue-500 h-1 w-full" />
-                <CardContent className="p-4 pt-3">
-                    <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">P2 Normal</p>
-                    <p className="text-2xl font-bold text-slate-900">{monthStats.p2}</p>
-                </CardContent>
-            </Card>
-            <Card className="border-0 bg-white shadow-sm overflow-hidden">
-                <div className="bg-amber-500 h-1 w-full" />
-                <CardContent className="p-4 pt-3">
-                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Planned</p>
-                    <p className="text-2xl font-bold text-slate-900">{monthStats.planned}</p>
-                </CardContent>
-            </Card>
-            <Card className="border-0 bg-white shadow-sm overflow-hidden">
-                <div className="bg-indigo-500 h-1 w-full" />
-                <CardContent className="p-4 pt-3">
-                    <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Progress</p>
-                    <p className="text-2xl font-bold text-slate-900">{monthStats.progress}</p>
-                </CardContent>
-            </Card>
-            <Card className="border-0 bg-white shadow-sm overflow-hidden">
-                <div className="bg-emerald-500 h-1 w-full" />
-                <CardContent className="p-4 pt-3">
-                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Completed</p>
-                    <p className="text-2xl font-bold text-slate-900">{monthStats.done}</p>
-                </CardContent>
-            </Card>
+        <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4 lg:grid-cols-7 sm:gap-2">
+            {[
+                { label: 'Total', value: monthStats.total, color: 'bg-slate-500', textColor: 'text-slate-600' },
+                { label: 'P0 Urgent', value: monthStats.p0, color: 'bg-red-500', textColor: 'text-red-600' },
+                { label: 'P1 High', value: monthStats.p1, color: 'bg-orange-500', textColor: 'text-orange-600' },
+                { label: 'P2 Normal', value: monthStats.p2, color: 'bg-blue-500', textColor: 'text-blue-600' },
+                { label: 'Planned', value: monthStats.planned, color: 'bg-amber-500', textColor: 'text-amber-600' },
+                { label: 'Progress', value: monthStats.progress, color: 'bg-indigo-500', textColor: 'text-indigo-600' },
+                { label: 'Completed', value: monthStats.done, color: 'bg-emerald-500', textColor: 'text-emerald-600' }
+            ].map((stat, i) => (
+                <Card key={i} className="border-0 bg-white shadow-xs overflow-hidden h-10 flex flex-col justify-center">
+                    <div className={`${stat.color} h-[3px] w-full absolute top-0`} />
+                    <CardContent className="p-0 px-2.5 pt-1 flex items-center justify-between gap-1">
+                        <span className={`text-[8px] font-black uppercase tracking-tighter ${stat.textColor} truncate mr-1`}>{stat.label}</span>
+                        <span className="text-sm font-black text-slate-900">{stat.value}</span>
+                    </CardContent>
+                </Card>
+            ))}
         </div>
 
         {viewMode === 'daily' ? (
@@ -726,8 +694,8 @@ export default function PmDailyPlannerPage() {
                                       {task.idMachine && <Badge variant="secondary" className="bg-white/80 text-[10px] text-slate-700 shadow-sm">{task.idMachine}</Badge>}
                                       {getPriorityBadge(task.priority)}
                                     </div>
-                                    <p className="mt-2 text-sm font-semibold text-slate-900">{task.workContent}</p>
-                                    <p className="mt-1 text-xs text-slate-600">{task.assignee || 'Unassigned'}</p>
+                                    <p className="mt-2 text-base font-bold text-slate-900">{task.workContent}</p>
+                                    <p className="mt-1 text-xs text-slate-600 font-medium">Assignees: {task.assignees.length > 0 ? task.assignees.join(', ') : 'Unassigned'}</p>
                                   </div>
                                   <div className="shrink-0">{getStatusIcon(task.status)}</div>
                                 </div>
@@ -778,11 +746,19 @@ export default function PmDailyPlannerPage() {
                                     </div>
                                   </TableCell>
                                   <TableCell className="align-top">
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 to-fuchsia-500 font-bold text-[10px] text-white shadow-sm">
-                                         {task.assignee ? task.assignee.charAt(0).toUpperCase() : '?'}
-                                       </div>
-                                      <span className="text-sm text-slate-700">{task.assignee || 'Unassigned'}</span>
+                                    <div className="flex flex-wrap gap-2">
+                                      {task.assignees.length > 0 ? (
+                                        task.assignees.map((name, i) => (
+                                          <div key={i} className="flex items-center gap-1.5 bg-white/60 px-2 py-1 rounded-md border border-slate-100">
+                                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 to-fuchsia-500 font-bold text-[8px] text-white shadow-sm">
+                                              {name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <span className="text-[11px] font-medium text-slate-700">{name}</span>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <span className="text-xs text-slate-400 italic">Unassigned</span>
+                                      )}
                                     </div>
                                   </TableCell>
                                   <TableCell className="align-top">
@@ -791,7 +767,7 @@ export default function PmDailyPlannerPage() {
                                         {task.idMachine && <Badge variant="secondary" className="h-4 bg-white/80 px-1 text-[10px] text-slate-700 shadow-sm">{task.idMachine}</Badge>}
                                         {getPriorityBadge(task.priority)}
                                       </div>
-                                      <p className="text-sm font-medium text-slate-900 leading-tight">{task.workContent}</p>
+                                      <p className="text-base font-bold text-slate-900 leading-snug">{task.workContent}</p>
                                     </div>
                                   </TableCell>
                                   <TableCell className="align-top">
@@ -827,7 +803,7 @@ export default function PmDailyPlannerPage() {
         ) : (
           /* Month Overview Section */
           <Card className="overflow-hidden border-0 bg-white shadow-md shadow-slate-200/70">
-               <CardHeader className="border-b border-indigo-100 bg-linear-to-r from-indigo-50 via-violet-50 to-fuchsia-50 py-4">
+               <CardHeader className="border-b border-indigo-100 bg-linear-to-r from-indigo-50 via-violet-50 to-fuchsia-50 py-2 px-4">
                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                      <div>
                          <CardTitle className="text-lg font-bold">Month Overview: {mounted && date ? format(date, 'MMMM yyyy') : ''}</CardTitle>
@@ -866,7 +842,7 @@ export default function PmDailyPlannerPage() {
                                           {dayTasks.map(task => (
                                               <div 
                                                 key={task.id} 
-                                                className={`flex items-start gap-3 rounded-xl border border-transparent bg-linear-to-r p-3 transition-all hover:scale-[1.005] hover:shadow-md group sm:gap-4`}
+                                                className={`flex items-start gap-3 rounded-xl border border-slate-100 bg-linear-to-r ${getStatusTone(task.status)} p-3 transition-all hover:scale-[1.005] hover:shadow-md group sm:gap-4`}
                                               >
                                                   <div className="shrink-0 pt-0.5">
                                                       {getStatusIcon(task.status)}
@@ -877,8 +853,19 @@ export default function PmDailyPlannerPage() {
                                                           {task.idMachine && <Badge variant="outline" className="text-[10px] h-4">{task.idMachine}</Badge>}
                                                           <span className="text-[10px] font-mono text-slate-500">{task.startTime} - {task.stopTime}</span>
                                                       </div>
-                                                      <p className="text-sm font-medium text-slate-800 truncate">{task.workContent}</p>
-                                                      <p className="text-[10px] text-slate-500 mt-1">Assignee: <span className="font-semibold">{task.assignee || 'Unassigned'}</span></p>
+                                                      <p className="text-base font-bold text-slate-900 leading-tight">{task.workContent}</p>
+                                                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                                                          <p className="text-[11px] text-slate-500 font-medium">Assignees:</p>
+                                                          {task.assignees.length > 0 ? (
+                                                              task.assignees.map((name, i) => (
+                                                                  <Badge key={i} variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-100 text-[10px] px-1.5 py-0">
+                                                                      {name}
+                                                                  </Badge>
+                                                              ))
+                                                          ) : (
+                                                              <span className="text-[10px] text-slate-400 italic">Unassigned</span>
+                                                          )}
+                                                      </div>
                                                   </div>
                                                    {isAdmin && (
                                                        <Button 
@@ -974,11 +961,19 @@ export default function PmDailyPlannerPage() {
                     variant="outline"
                     role="combobox"
                     aria-expanded={openAssignee}
-                    className="justify-between font-normal sm:col-span-3"
+                    className="justify-between font-normal sm:col-span-3 min-h-[40px] h-auto flex-wrap gap-1"
                   >
-                    {formData.assignee
-                      ? users.find((u) => u.displayName === formData.assignee)?.displayName
-                      : "Select Assignee..."}
+                    {formData.assignees.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {formData.assignees.map((name) => (
+                          <Badge key={name} variant="secondary" className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200">
+                            {name}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      "Select Assignees..."
+                    )}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -993,14 +988,24 @@ export default function PmDailyPlannerPage() {
                             key={u.id}
                             value={u.displayName}
                             onSelect={(currentValue) => {
-                              setFormData({ ...formData, assignee: currentValue });
-                              setOpenAssignee(false);
+                              const alreadySelected = formData.assignees.includes(u.displayName);
+                              if (alreadySelected) {
+                                setFormData({
+                                  ...formData,
+                                  assignees: formData.assignees.filter((name) => name !== u.displayName)
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  assignees: [...formData.assignees, u.displayName]
+                                });
+                              }
                             }}
                           >
                             <Check
                               className={cn(
                                 "mr-2 h-4 w-4",
-                                formData.assignee === u.displayName ? "opacity-100" : "opacity-0"
+                                formData.assignees.includes(u.displayName) ? "opacity-100" : "opacity-0"
                               )}
                             />
                             {u.displayName}

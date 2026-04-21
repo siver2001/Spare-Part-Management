@@ -17,7 +17,7 @@ export interface DailyAssignment {
   startTime?: string; // HH:mm
   stopTime?: string; // HH:mm
   durationMins?: number;
-  assignee: string | null;
+  assignees: string[];
   
   // tracking
   priority: Priority;

@@ -226,18 +226,18 @@ export default function WorkingHoursPage() {
   return (
     <ProtectedLayout>
       <div className="space-y-6">
-        <header className="flex flex-col gap-4 rounded-2xl border-0 bg-linear-to-r from-slate-900 via-blue-900 to-indigo-900 p-6 shadow-xl shadow-blue-900/20 md:flex-row md:items-center md:justify-between">
+        <header className="flex flex-col gap-4 rounded-xl border-0 bg-linear-to-r from-slate-900 via-blue-900 to-indigo-900 p-4 shadow-lg shadow-blue-900/20 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white">Working Hours (OT)</h1>
+            <h1 className="text-xl font-extrabold tracking-tight text-white">Working Hours (OT)</h1>
           </div>
           {isAdmin && (
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button 
                 variant="outline" 
-                className="relative border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white h-11 px-6 font-bold"
+                className="relative border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white h-9 px-4 text-xs font-bold"
                 disabled={importing}
               >
-                <FileUp className="mr-2 h-5 w-5" /> 
+                <FileUp className="mr-2 h-4 w-4" /> 
                 {importing ? 'Importing...' : 'Import Excel'}
                 <input 
                     type="file" 
@@ -249,7 +249,7 @@ export default function WorkingHoursPage() {
               </Button>
               <Button 
                 variant="destructive" 
-                className="bg-red-500/80 hover:bg-red-600 h-11 px-6 font-bold"
+                className="bg-red-500/80 hover:bg-red-600 h-9 px-4 text-xs font-bold"
                 onClick={async () => {
                     if (confirm("Are you sure you want to delete all records?")) {
                         await SupabaseService.deleteAllWorkingHours();
@@ -258,23 +258,24 @@ export default function WorkingHoursPage() {
                     }
                 }}
               >
-                  <Trash2 className="mr-2 h-5 w-5" /> Clear All
+                  <Trash2 className="mr-2 h-4 w-4" /> Clear All
               </Button>
             </div>
           )}
         </header>
 
-        <Card className="border-0 bg-white shadow-2xl shadow-slate-200/70 overflow-hidden rounded-2xl">
-            <CardHeader className="bg-slate-50/80 border-b p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <CardTitle className="text-xl font-black flex items-center gap-2 text-slate-800">
-                        <Users className="h-6 w-6 text-blue-600" /> DANH SÁCH NHÂN VIÊN
-                    </CardTitle>
-                    <div className="relative w-full md:w-80">
-                        <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/70 overflow-hidden rounded-xl">
+            <CardHeader className="bg-slate-50/90 border-b py-1.5 px-3">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Users className="h-3.5 w-3.5 text-blue-600" />
+                        <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">Danh sách nhân viên</span>
+                    </div>
+                    <div className="relative flex-1 max-w-[300px]">
+                        <Search className="absolute left-2.5 top-1.5 h-3 w-3 text-slate-400" />
                         <Input 
-                            placeholder="Tìm kiếm tên, MSNV..." 
-                            className="pl-10 h-11 text-base border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                            placeholder="Tìm kiếm..." 
+                            className="pl-8 h-6 text-[11px] border-slate-200 rounded bg-white/50 focus:bg-white"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -348,45 +349,42 @@ export default function WorkingHoursPage() {
                         </div>
 
                         <div className="hidden md:block">
-                    <ScrollArea className="w-full">
-                        <div className="max-h-[700px]">
-                            <Table className="border-separate border-spacing-0">
-                                <TableHeader className="bg-slate-100 sticky top-0 z-10">
-                                    <TableRow>
-                                        <TableHead className="min-w-[100px] font-black border-b border-r bg-slate-200 text-slate-900 text-sm uppercase p-4">MSNV</TableHead>
-                                        <TableHead className="min-w-[250px] font-black border-b border-r bg-slate-200 text-slate-900 text-sm uppercase p-4">HỌ TÊN</TableHead>
-                                        <TableHead className="min-w-[180px] font-black border-b border-r bg-slate-200 text-slate-900 text-sm uppercase p-4">BỘ PHẬN</TableHead>
+                        <div className="max-h-[600px] overflow-auto border rounded-md relative bg-white">
+                            <table className="w-full border-separate border-spacing-0 text-sm">
+                                <thead className="relative z-30">
+                                    <tr className="hover:bg-transparent">
+                                        <th className="min-w-[80px] font-black border-b border-r bg-slate-200 text-slate-900 text-[11px] uppercase p-2 sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] text-left">MSNV</th>
+                                        <th className="min-w-[200px] font-black border-b border-r bg-slate-200 text-slate-900 text-[11px] uppercase p-2 sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] text-left">HỌ TÊN</th>
+                                        <th className="min-w-[150px] font-black border-b border-r bg-slate-200 text-slate-900 text-[11px] uppercase p-2 sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] text-left">BỘ PHẬN</th>
                                         {dynamicHeaders.map(h => (
-                                            <TableHead key={h} className="min-w-[70px] text-center font-black px-2 whitespace-nowrap border-b border-r bg-blue-100 text-blue-900 text-sm">
+                                            <th key={h} className="min-w-[60px] text-center font-black px-1 whitespace-nowrap border-b border-r bg-blue-100 text-blue-900 text-[11px] sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)]">
                                                 {h}
-                                            </TableHead>
+                                            </th>
                                         ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
+                                    </tr>
+                                </thead>
+                                <tbody>
                                     {filteredData.map((item) => (
-                                        <TableRow key={item.id} className="hover:bg-blue-50/30 transition-colors group">
-                                            <TableCell className="font-bold text-sm border-r border-b p-3 text-slate-700 bg-slate-50/50 group-hover:bg-white">{item.msnv}</TableCell>
-                                            <TableCell className="font-black text-base border-r border-b p-3 text-slate-900 whitespace-nowrap bg-white">{item.fullName}</TableCell>
-                                            <TableCell className="font-bold text-sm text-slate-600 border-r border-b p-3">{item.department}</TableCell>
+                                        <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
+                                            <td className="font-bold text-[11px] border-r border-b p-2 text-slate-700 bg-slate-50/50 group-hover:bg-white">{item.msnv}</td>
+                                            <td className="font-black text-[12px] border-r border-b p-2 text-slate-900 whitespace-nowrap bg-white">{item.fullName}</td>
+                                            <td className="font-bold text-[11px] text-slate-600 border-r border-b p-2">{item.department}</td>
                                             {dynamicHeaders.map(h => (
-                                                <TableCell 
+                                                <td 
                                                     key={h} 
                                                     className={cn(
-                                                        "text-center text-sm px-2 border-r border-b min-w-[70px] h-12 transition-all group-hover:scale-[1.02]",
+                                                        "text-center text-[11px] px-1 border-r border-b min-w-[60px] h-9 transition-all group-hover:scale-[1.02]",
                                                         getCellColor(item.days[h])
                                                     )}
                                                 >
                                                     {item.days[h] || ''}
-                                                </TableCell>
+                                                </td>
                                             ))}
-                                        </TableRow>
+                                        </tr>
                                     ))}
-                                </TableBody>
-                            </Table>
+                                </tbody>
+                            </table>
                         </div>
-                        <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
                         </div>
                     </>
                 )}
