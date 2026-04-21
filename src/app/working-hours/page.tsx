@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
@@ -27,18 +27,15 @@ import { getWorkingHoursDateKey, normalizeWorkingHoursDateKey } from '@/lib/work
 export default function WorkingHoursPage() {
   const { user } = useAuth();
   const isAdmin = user && (user.role === 'ADMIN' || user.role === 'POWER_USER');
+  const initialWorkingHoursRef = useRef(SupabaseService.peekWorkingHours());
   
-  const [data, setData] = useState<WorkingHours[]>(() => SupabaseService.peekWorkingHours() || []);
-  const [loading, setLoading] = useState(() => !SupabaseService.peekWorkingHours());
+  const [data, setData] = useState<WorkingHours[]>(() => initialWorkingHoursRef.current || []);
+  const [loading, setLoading] = useState(() => !initialWorkingHoursRef.current);
   const [importing, setImporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDateKey, setSelectedDateKey] = useState('');
 
-  useEffect(() => {
-    fetchData(data.length === 0);
-  }, []);
-
-  const fetchData = async (showLoader = false) => {
+  const fetchData = useCallback(async (showLoader = false) => {
     if (showLoader) {
       setLoading(true);
     }
@@ -52,7 +49,11 @@ export default function WorkingHoursPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void fetchData(!initialWorkingHoursRef.current);
+  }, [fetchData]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,7 +114,7 @@ export default function WorkingHoursPage() {
                 try {
                     const dateObj = XLSX.SSF.parse_date_code(h);
                     label = getWorkingHoursDateKey(new Date(dateObj.y, dateObj.m - 1, dateObj.d));
-                } catch (e) {}
+                } catch {}
             }
 
             const normalizedKey = normalizeWorkingHoursDateKey(label);
@@ -167,7 +168,10 @@ export default function WorkingHoursPage() {
     item.department.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const dynamicHeaders = data.length > 0 ? Object.keys(data[0].days) : [];
+  const dynamicHeaders = useMemo(
+    () => (data.length > 0 ? Object.keys(data[0].days) : []),
+    [data]
+  );
 
   useEffect(() => {
     if (dynamicHeaders.length === 0) {

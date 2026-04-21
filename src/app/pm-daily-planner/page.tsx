@@ -14,8 +14,6 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
-  XCircle,
-  PauseCircle,
   ClipboardList
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';

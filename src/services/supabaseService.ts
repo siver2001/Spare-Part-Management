@@ -2,7 +2,6 @@ import { supabase } from '@/lib/supabase';
 import { SparePart, Transaction, User, Role, WorkingHours } from '@/types';
 import {
   invalidateClientCache,
-  invalidateClientCacheByPrefix,
   peekClientCache,
   readClientCache,
   writeClientCache,
