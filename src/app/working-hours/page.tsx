@@ -53,7 +53,7 @@ export default function WorkingHoursPage() {
     void fetchData(!initialWorkingHoursRef.current);
   }, [fetchData]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -64,94 +64,119 @@ export default function WorkingHoursPage() {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         
-        // Find APR-OT sheet
-        const sheetName = wb.SheetNames.find(n => n.includes('APR-OT'));
-        if (!sheetName) {
-            toast.error("Sheet 'APR-OT' not found in file");
+        const validMonths = [
+            'JAN-OT', 'FEB-OT', 'MAR-OT', 'APR-OT', 'MAY-OT', 'JUN-OT',
+            'JUL-OT', 'AUG-OT', 'SEP-OT', 'OCT-OT', 'NOV-OT', 'DEC-OT'
+        ];
+
+        // Find all sheets that match our list
+        const targetSheetNames = wb.SheetNames.filter(n => 
+            validMonths.some(m => n.toUpperCase().includes(m))
+        );
+
+        if (targetSheetNames.length === 0) {
+            toast.error("Không tìm thấy các sheet OT (JAN-OT, FEB-OT, ...) trong file");
             setImporting(false);
             return;
         }
 
-        const ws = wb.Sheets[sheetName];
-        const rawData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as (string | number | undefined)[][];
-        
-        // Find Header Row (scan first 10 rows)
-        let headerRowIdx = -1;
-        for (let i = 0; i < Math.min(rawData.length, 10); i++) {
-            const row = rawData[i];
-            if (row && row.some(c => String(c).includes('MSNV') || String(c).includes('HỌ TÊN'))) {
-                headerRowIdx = i;
-                break;
-            }
-        }
+        // Use a map to aggregate data by MSNV (since an employee might be in multiple sheets)
+        const employeeMap = new Map<string, Omit<WorkingHours, 'id' | 'createdAt'>>();
 
-        if (headerRowIdx === -1) {
-            toast.error("Could not find header row (MSNV or HỌ TÊN) in the first 10 rows");
-            setImporting(false);
-            return;
-        }
-
-        const headers = rawData[headerRowIdx];
-        const msnvIdx = headers.findIndex(h => String(h).includes('MSNV'));
-        const nameIdx = headers.findIndex(h => String(h).includes('HỌ TÊN'));
-        const deptIdx = headers.findIndex(h => String(h).includes('BỘ PHẬN') || String(h).includes('TEAM'));
-
-        if (msnvIdx === -1 || nameIdx === -1 || deptIdx === -1) {
-            toast.error("Required columns (MSNV, HỌ TÊN, BỘ PHẬN/TEAM) not found");
-            setImporting(false);
-            return;
-        }
-
-        // Map day columns (everything after the fixed columns)
-        const dateHeaders: Array<{ key: string, index: number }> = [];
-        headers.forEach((h, idx) => {
-            if (idx <= Math.max(msnvIdx, nameIdx, deptIdx)) return;
+        for (const sheetName of targetSheetNames) {
+            const ws = wb.Sheets[sheetName];
+            const rawData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as (string | number | undefined)[][];
             
-            let label = String(h);
-            if (typeof h === 'number' && h >= 40000 && h < 50000) {
-                try {
-                    const dateObj = XLSX.SSF.parse_date_code(h);
-                    label = getWorkingHoursDateKey(new Date(dateObj.y, dateObj.m - 1, dateObj.d));
-                } catch {}
+            // Find Header Row (scan first 15 rows for safety)
+            let headerRowIdx = -1;
+            for (let i = 0; i < Math.min(rawData.length, 15); i++) {
+                const row = rawData[i];
+                if (row && row.some(c => {
+                    const str = String(c).toUpperCase();
+                    return str.includes('MSNV') || str.includes('HỌ TÊN');
+                })) {
+                    headerRowIdx = i;
+                    break;
+                }
             }
 
-            const normalizedKey = normalizeWorkingHoursDateKey(label);
-            if (normalizedKey && normalizedKey !== 'undefined' && normalizedKey.trim() !== '') {
-                dateHeaders.push({ key: normalizedKey, index: idx });
+            if (headerRowIdx === -1) continue;
+
+            const headers = rawData[headerRowIdx];
+            const msnvIdx = headers.findIndex(h => String(h).toUpperCase().includes('MSNV'));
+            const nameIdx = headers.findIndex(h => String(h).toUpperCase().includes('HỌ TÊN'));
+            const deptIdx = headers.findIndex(h => {
+                const str = String(h).toUpperCase();
+                return str.includes('BỘ PHẬN') || str.includes('TEAM') || str.includes('DEPT');
+            });
+
+            if (msnvIdx === -1 || nameIdx === -1 || deptIdx === -1) continue;
+
+            // Map day columns
+            const dateHeaders: Array<{ key: string, index: number }> = [];
+            headers.forEach((h, idx) => {
+                if (idx <= Math.max(msnvIdx, nameIdx, deptIdx)) return;
+                
+                let label = String(h);
+                if (typeof h === 'number' && h >= 40000 && h < 50000) {
+                    try {
+                        const dateObj = XLSX.SSF.parse_date_code(h);
+                        label = getWorkingHoursDateKey(new Date(dateObj.y, dateObj.m - 1, dateObj.d));
+                    } catch {}
+                }
+
+                const normalizedKey = normalizeWorkingHoursDateKey(label);
+                if (normalizedKey && normalizedKey !== 'undefined' && normalizedKey.trim() !== '') {
+                    dateHeaders.push({ key: normalizedKey, index: idx });
+                }
+            });
+
+            // Process rows in this sheet
+            for (let i = headerRowIdx + 1; i < rawData.length; i++) {
+                const row = rawData[i];
+                if (!row) continue;
+                
+                const msnvRaw = String(row[msnvIdx] || '').trim();
+                if (!msnvRaw) continue;
+
+                const fullName = String(row[nameIdx] || '').trim();
+                const department = String(row[deptIdx] || '').trim();
+                if (!fullName) continue;
+
+                if (!employeeMap.has(msnvRaw)) {
+                    employeeMap.set(msnvRaw, {
+                        msnv: msnvRaw,
+                        fullName,
+                        department,
+                        days: {}
+                    });
+                }
+
+                const empData = employeeMap.get(msnvRaw)!;
+                // Merge days from this sheet
+                dateHeaders.forEach(dh => {
+                    const value = row[dh.index];
+                    if (value !== undefined && value !== null && value !== '') {
+                        empData.days[dh.key] = value;
+                    }
+                });
             }
-        });
-
-        const rowsToInsert: Omit<WorkingHours, 'id' | 'createdAt'>[] = [];
-
-        for (let i = headerRowIdx + 1; i < rawData.length; i++) {
-            const row = rawData[i];
-            if (!row || !row[nameIdx] || String(row[nameIdx]).trim() === '') continue;
-
-            const days: Record<string, string | number> = {};
-            dateHeaders.forEach(dh => {
-                days[dh.key] = row[dh.index] ?? '';
-            });
-
-            rowsToInsert.push({
-                msnv: String(row[msnvIdx] || '').trim(),
-                fullName: String(row[nameIdx] || '').trim(),
-                department: String(row[deptIdx] || '').trim(),
-                days
-            });
         }
+
+        const rowsToInsert = Array.from(employeeMap.values());
 
         if (rowsToInsert.length === 0) {
-            toast.error("No valid rows found to import");
+            toast.error("Không tìm thấy dữ liệu hợp lệ trong các sheet đã chọn");
             setImporting(false);
             return;
         }
 
         await SupabaseService.bulkCreateWorkingHours(rowsToInsert);
-        toast.success(`Successfully imported ${rowsToInsert.length} records`);
+        toast.success(`Đã import thành công ${rowsToInsert.length} nhân viên từ ${targetSheetNames.length} sheet`);
         fetchData();
       } catch (error) {
         console.error(error);
-        toast.error("Failed to parse or save file");
+        toast.error("Lỗi khi đọc hoặc lưu file");
       } finally {
         setImporting(false);
         e.target.value = '';
