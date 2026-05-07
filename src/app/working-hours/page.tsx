@@ -64,36 +64,32 @@ export default function WorkingHoursPage() {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         
-        const validMonths = [
-            'JAN-OT', 'FEB-OT', 'MAR-OT', 'APR-OT', 'MAY-OT', 'JUN-OT',
-            'JUL-OT', 'AUG-OT', 'SEP-OT', 'OCT-OT', 'NOV-OT', 'DEC-OT'
-        ];
-
-        // Find all sheets that match our list
-        const targetSheetNames = wb.SheetNames.filter(n => 
-            validMonths.some(m => n.toUpperCase().includes(m))
-        );
+        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+        const targetSheetNames = wb.SheetNames.filter(n => {
+            const upName = n.toUpperCase();
+            return months.some(m => upName.includes(m));
+        });
 
         if (targetSheetNames.length === 0) {
-            toast.error("Không tìm thấy các sheet OT (JAN-OT, FEB-OT, ...) trong file");
+            toast.error("Không tìm thấy sheet dữ liệu (JAN, FEB, ...) trong file");
             setImporting(false);
             return;
         }
 
-        // Use a map to aggregate data by MSNV (since an employee might be in multiple sheets)
+        // Use a map to aggregate data by MSNV
         const employeeMap = new Map<string, Omit<WorkingHours, 'id' | 'createdAt'>>();
 
         for (const sheetName of targetSheetNames) {
             const ws = wb.Sheets[sheetName];
             const rawData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as (string | number | undefined)[][];
             
-            // Find Header Row (scan first 15 rows for safety)
+            // Find Header Row (scan first 15 rows)
             let headerRowIdx = -1;
             for (let i = 0; i < Math.min(rawData.length, 15); i++) {
                 const row = rawData[i];
                 if (row && row.some(c => {
                     const str = String(c).toUpperCase();
-                    return str.includes('MSNV') || str.includes('HỌ TÊN');
+                    return str.includes('MSNV') || str.includes('HỌ TÊN') || str.includes('EID');
                 })) {
                     headerRowIdx = i;
                     break;
@@ -103,22 +99,31 @@ export default function WorkingHoursPage() {
             if (headerRowIdx === -1) continue;
 
             const headers = rawData[headerRowIdx];
-            const msnvIdx = headers.findIndex(h => String(h).toUpperCase().includes('MSNV'));
-            const nameIdx = headers.findIndex(h => String(h).toUpperCase().includes('HỌ TÊN'));
-            const deptIdx = headers.findIndex(h => {
-                const str = String(h).toUpperCase();
-                return str.includes('BỘ PHẬN') || str.includes('TEAM') || str.includes('DEPT');
+            let msnvIdx = -1;
+            let nameIdx = -1;
+            let deptIdx = -1;
+            let teamIdx = -1;
+
+            headers.forEach((h, idx) => {
+                const s = String(h || '').toUpperCase();
+                if (s.includes('MSNV') || s.includes('EID')) msnvIdx = idx;
+                if (s.includes('HỌ TÊN') || s.includes('FULL NAME')) nameIdx = idx;
+                if (s.includes('PHÒNG BAN') || s.includes('DEPARTMENT')) deptIdx = idx;
+                if (s.includes('BỘ PHẬN') || s.includes('TEAM')) teamIdx = idx;
             });
 
-            if (msnvIdx === -1 || nameIdx === -1 || deptIdx === -1) continue;
+            if (msnvIdx === -1 || nameIdx === -1) continue;
+
+            // Determine the boundary for date columns (everything after the last metadata column)
+            const lastMetaIdx = Math.max(msnvIdx, nameIdx, deptIdx, teamIdx);
 
             // Map day columns
             const dateHeaders: Array<{ key: string, index: number }> = [];
             headers.forEach((h, idx) => {
-                if (idx <= Math.max(msnvIdx, nameIdx, deptIdx)) return;
+                if (idx <= lastMetaIdx || !h) return;
                 
                 let label = String(h);
-                if (typeof h === 'number' && h >= 40000 && h < 50000) {
+                if (typeof h === 'number' && h >= 40000 && h < 60000) {
                     try {
                         const dateObj = XLSX.SSF.parse_date_code(h);
                         label = getWorkingHoursDateKey(new Date(dateObj.y, dateObj.m - 1, dateObj.d));
@@ -126,7 +131,8 @@ export default function WorkingHoursPage() {
                 }
 
                 const normalizedKey = normalizeWorkingHoursDateKey(label);
-                if (normalizedKey && normalizedKey !== 'undefined' && normalizedKey.trim() !== '') {
+                // Only add if it looks like a date (contains month names or matches date patterns)
+                if (normalizedKey && normalizedKey !== 'undefined' && normalizedKey.trim() !== '' && (typeof h === 'number' || months.some(m => normalizedKey.toUpperCase().includes(m)))) {
                     dateHeaders.push({ key: normalizedKey, index: idx });
                 }
             });
@@ -137,17 +143,25 @@ export default function WorkingHoursPage() {
                 if (!row) continue;
                 
                 const msnvRaw = String(row[msnvIdx] || '').trim();
-                if (!msnvRaw) continue;
+                // Skip header-like rows or empty MSNV
+                if (!msnvRaw || msnvRaw.toUpperCase() === 'MSNV' || msnvRaw.toUpperCase() === 'EID') continue;
 
                 const fullName = String(row[nameIdx] || '').trim();
-                const department = String(row[deptIdx] || '').trim();
                 if (!fullName) continue;
+
+                // Combine Dept and Team
+                const dPart = deptIdx !== -1 ? String(row[deptIdx] || '').trim() : '';
+                const tPart = teamIdx !== -1 ? String(row[teamIdx] || '').trim() : '';
+                const deptValues = [];
+                if (dPart) deptValues.push(dPart);
+                if (tPart && tPart !== dPart) deptValues.push(tPart);
+                const finalDept = deptValues.join(' - ') || 'N/A';
 
                 if (!employeeMap.has(msnvRaw)) {
                     employeeMap.set(msnvRaw, {
                         msnv: msnvRaw,
                         fullName,
-                        department,
+                        department: finalDept,
                         days: {}
                     });
                 }
