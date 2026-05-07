@@ -1,7 +1,19 @@
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function getWorkingHoursDateKey(date: Date): string {
-  return `${date.getDate()}-${MONTHS[date.getMonth()]}`;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function formatWorkingHoursDate(key: string): string {
+  if (!key || key.startsWith('_')) return key;
+  const parts = key.split('-');
+  if (parts.length !== 3) return key;
+  const day = parseInt(parts[2], 10);
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  return `${day}-${MONTHS[monthIdx]}`;
 }
 
 export function normalizeWorkingHoursDateKey(value: unknown): string | null {
@@ -26,7 +38,9 @@ export function normalizeWorkingHoursDateKey(value: unknown): string | null {
     );
 
     if (monthIndex >= 0) {
-      return `${Number(day)}-${MONTHS[monthIndex]}`;
+      const year = new Date().getFullYear();
+      const parsed = new Date(year, monthIndex, Number(day));
+      return getWorkingHoursDateKey(parsed);
     }
   }
 

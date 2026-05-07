@@ -20,7 +20,7 @@ import { Label } from '@/components/ui/label';
 import { SupabaseService } from '@/services/supabaseService';
 import { WorkingHours } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { getWorkingHoursDateKey, normalizeWorkingHoursDateKey } from '@/lib/workingHours';
+import { getWorkingHoursDateKey, normalizeWorkingHoursDateKey, formatWorkingHoursDate } from '@/lib/workingHours';
 
 export default function WorkingHoursPage() {
   const { user } = useAuth();
@@ -162,7 +162,7 @@ export default function WorkingHoursPage() {
                         msnv: msnvRaw,
                         fullName,
                         department: finalDept,
-                        days: {}
+                        days: { _index: i } as Record<string, string | number>
                     });
                 }
 
@@ -199,14 +199,35 @@ export default function WorkingHoursPage() {
     reader.readAsBinaryString(file);
   };
 
-  const filteredData = data.filter(item => 
-    item.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.msnv.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.department.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => {
+        const idxA = (a.days as { _index?: number })._index ?? 0;
+        const idxB = (b.days as { _index?: number })._index ?? 0;
+        return idxA - idxB;
+    });
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    return sortedData.filter(item => 
+      (item.fullName || '').toLowerCase().includes(query) ||
+      (item.msnv || '').toLowerCase().includes(query) ||
+      (item.department || '').toLowerCase().includes(query)
+    );
+  }, [sortedData, searchQuery]);
 
   const dynamicHeaders = useMemo(
-    () => (data.length > 0 ? Object.keys(data[0].days) : []),
+    () => {
+        if (data.length === 0) return [];
+        // Get all unique date keys across all items
+        const allKeys = new Set<string>();
+        data.forEach(item => {
+            Object.keys(item.days).forEach(k => {
+                if (!k.startsWith('_')) allKeys.add(k);
+            });
+        });
+        return Array.from(allKeys).sort();
+    },
     [data]
   );
 
@@ -223,9 +244,10 @@ export default function WorkingHoursPage() {
     }
   }, [dynamicHeaders, selectedDateKey]);
 
-  const getCellColor = (value: string | number) => {
+  const getCellColor = (value: string | number | undefined | null) => {
+    if (value === undefined || value === null) return 'bg-white';
     const v = String(value).toUpperCase().trim();
-    if (!v) return 'bg-white';
+    if (!v || v === 'UNDEFINED' || v === 'NULL') return 'bg-white';
     
     // 1. Day off / Holiday - RED
     if (['OFF', 'SUN', 'PH', 'L'].includes(v)) return 'bg-[#ef4444] text-white font-black';
@@ -345,7 +367,7 @@ export default function WorkingHoursPage() {
                                     >
                                       {dynamicHeaders.map((header) => (
                                         <option key={header} value={header}>
-                                          {header}
+                                          {formatWorkingHoursDate(header)}
                                         </option>
                                       ))}
                                     </select>
@@ -377,7 +399,7 @@ export default function WorkingHoursPage() {
                                             </div>
                                             <div>
                                                 <p className="text-xs uppercase tracking-wide text-slate-500">Date</p>
-                                                <p className="font-medium text-slate-900">{mobileDateKey || '--'}</p>
+                                                <p className="font-medium text-slate-900">{formatWorkingHoursDate(mobileDateKey) || '--'}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -395,7 +417,7 @@ export default function WorkingHoursPage() {
                                         <th className="min-w-[150px] font-black border-b border-r bg-slate-200 text-slate-900 text-[11px] uppercase p-2 sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] text-left">BỘ PHẬN</th>
                                         {dynamicHeaders.map(h => (
                                             <th key={h} className="min-w-[60px] text-center font-black px-1 whitespace-nowrap border-b border-r bg-blue-100 text-blue-900 text-[11px] sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)]">
-                                                {h}
+                                                {formatWorkingHoursDate(h)}
                                             </th>
                                         ))}
                                     </tr>
