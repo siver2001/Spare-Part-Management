@@ -28,7 +28,10 @@ function toPayload(task: DailyAssignment) {
     status: task.status,
     checklist: task.checklist,
     notes: task.notes,
-    photos: task.photos
+    photos: task.photos,
+    workshop: task.workshop,
+    handover_shifts: task.handoverShifts?.join(', '),
+    handover_staff: task.handoverStaff?.join(', ')
   };
 }
 
@@ -71,7 +74,10 @@ export const pmDailyDb = {
       status: t.status,
       checklist: t.checklist || [],
       notes: t.notes || '',
-      photos: t.photos || []
+      photos: t.photos || [],
+      workshop: t.workshop || '',
+      handoverShifts: t.handover_shifts ? String(t.handover_shifts).split(',').map((s: string) => s.trim()) : [],
+      handoverStaff: t.handover_staff ? String(t.handover_staff).split(',').map((s: string) => s.trim()) : []
     }));
 
     writeClientCache(cacheKey, tasks);

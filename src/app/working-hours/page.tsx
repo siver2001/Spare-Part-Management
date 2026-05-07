@@ -9,8 +9,17 @@ import {
   Trash2, 
   Users, 
   Search, 
-  AlertCircle
+  AlertCircle,
+  Save
 } from 'lucide-react';
+
+import { 
+    Select, 
+    SelectContent, 
+    SelectItem, 
+    SelectTrigger, 
+    SelectValue 
+} from '@/components/ui/select';
 
 import { ProtectedLayout } from '@/components/layout/ProtectedLayout';
 import { Button } from '@/components/ui/button';
@@ -32,6 +41,48 @@ export default function WorkingHoursPage() {
   const [importing, setImporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDateKey, setSelectedDateKey] = useState('');
+  const [pendingChanges, setPendingChanges] = useState<Record<string, Record<string, string>>>({});
+  const [saving, setSaving] = useState(false);
+
+  const SHIFT_OPTIONS = ['AL', 'HL', 'OFF', 'OFFB', 'C1', 'C2', 'C3', 'HC', 'C1/12', 'C2/12', 'C3/12', 'HC/12'];
+
+  const handleCellChange = (rowId: string, dateKey: string, value: string) => {
+    setPendingChanges(prev => ({
+        ...prev,
+        [rowId]: {
+            ...(prev[rowId] || {}),
+            [dateKey]: value
+        }
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+        const updatedData = data.map(item => {
+            if (pendingChanges[item.id]) {
+                return {
+                    ...item,
+                    days: {
+                        ...item.days,
+                        ...pendingChanges[item.id]
+                    }
+                };
+            }
+            return item;
+        });
+
+        await SupabaseService.bulkCreateWorkingHours(updatedData);
+        toast.success("Đã lưu thay đổi thành công và cập nhật dữ liệu mới");
+        setPendingChanges({});
+        fetchData();
+    } catch (error) {
+        console.error(error);
+        toast.error("Lỗi khi lưu dữ liệu");
+    } finally {
+        setSaving(false);
+    }
+  };
 
   const fetchData = useCallback(async (showLoader = false) => {
     if (showLoader) {
@@ -330,14 +381,27 @@ export default function WorkingHoursPage() {
                         <Users className="h-3.5 w-3.5 text-blue-600" />
                         <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">Danh sách nhân viên</span>
                     </div>
-                    <div className="relative flex-1 max-w-[300px]">
-                        <Search className="absolute left-2.5 top-1.5 h-3 w-3 text-slate-400" />
-                        <Input 
-                            placeholder="Tìm kiếm..." 
-                            className="pl-8 h-6 text-[11px] border-slate-200 rounded bg-white/50 focus:bg-white"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+                    <div className="flex items-center gap-3 flex-1 justify-end max-w-[450px]">
+                        {Object.keys(pendingChanges).length > 0 && (
+                            <Button 
+                                size="sm" 
+                                className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-[11px] font-bold shadow-md animate-in fade-in slide-in-from-right-2"
+                                onClick={handleSave}
+                                disabled={saving}
+                            >
+                                <Save className="h-3 w-3 mr-1" />
+                                {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                            </Button>
+                        )}
+                        <div className="relative flex-1 max-w-[300px]">
+                            <Search className="absolute left-2.5 top-1.5 h-3 w-3 text-slate-400" />
+                            <Input 
+                                placeholder="Tìm kiếm..." 
+                                className="pl-8 h-6 text-[11px] border-slate-200 rounded bg-white/50 focus:bg-white"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
                     </div>
                 </div>
             </CardHeader>
@@ -432,11 +496,23 @@ export default function WorkingHoursPage() {
                                                 <td 
                                                     key={h} 
                                                     className={cn(
-                                                        "text-center text-[11px] px-1 border-r border-b min-w-[60px] h-9 transition-all group-hover:scale-[1.02]",
-                                                        getCellColor(item.days[h])
+                                                        "text-center text-[10px] p-0 border-r border-b min-w-[70px] h-9 transition-all",
+                                                        getCellColor(pendingChanges[item.id]?.[h] ?? item.days[h])
                                                     )}
                                                 >
-                                                    {item.days[h] || ''}
+                                                    <Select
+                                                        value={String(pendingChanges[item.id]?.[h] ?? item.days[h] ?? '')}
+                                                        onValueChange={(val) => handleCellChange(item.id, h, val)}
+                                                    >
+                                                        <SelectTrigger className="h-full w-full border-0 bg-transparent focus:ring-0 p-0 justify-center rounded-none font-black">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {SHIFT_OPTIONS.map(opt => (
+                                                                <SelectItem key={opt} value={opt} className="text-[11px] font-bold">{opt}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                 </td>
                                             ))}
                                         </tr>

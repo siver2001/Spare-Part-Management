@@ -14,7 +14,8 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
-  ClipboardList
+  ClipboardList,
+  Search
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
@@ -70,6 +71,11 @@ const SHIFT_MAP: Record<string, { start: string, stop: string }> = {
   'HC': { start: '08:00', stop: '16:00' },
   'HC/12': { start: '08:00', stop: '22:00' },
   'HC/OT': { start: '08:00', stop: '22:00' },
+};
+
+const MACHINE_LIST_DATA = {
+  'Insole': ['Máy Dán', 'Máy Cắt Đứng', 'Máy Tách', 'Máy Chặt Tự Động Luxin', 'Máy Chặt Manual', 'Máy In Logo', 'Logo In-House', 'Máy Thành Hình'],
+  'Foaming': ['Máy Đổ', 'Khuôn Đổ', 'Máy Tách', 'Chiller', 'Bồn Liệu']
 };
 
 const normalizeIdentity = (value: string | null | undefined) =>
@@ -159,6 +165,8 @@ export default function PmDailyPlannerPage() {
   const [users, setUsers] = useState<User[]>(initialUsersRef.current);
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('monthly');
   const [openAssignee, setOpenAssignee] = useState(false);
+  const [openDatePicker, setOpenDatePicker] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [workingHours, setWorkingHours] = useState<Awaited<ReturnType<typeof SupabaseService.getWorkingHours>>>(initialWorkingHoursRef.current);
   const itemsPerPage = 10;
@@ -192,7 +200,10 @@ export default function PmDailyPlannerPage() {
     startTime: '08:00',
     stopTime: '16:00',
     idMachine: '',
-    shift: ''
+    workshop: '',
+    shift: '',
+    handoverShifts: [] as string[],
+    handoverStaff: [] as string[]
   });
 
   const selectedDateStr = useMemo(() => {
@@ -270,6 +281,7 @@ export default function PmDailyPlannerPage() {
         p0: tasks.filter(t => t.priority.startsWith('P0')).length,
         p1: tasks.filter(t => t.priority.startsWith('P1')).length,
         p2: tasks.filter(t => t.priority.startsWith('P2')).length,
+        p3: tasks.filter(t => t.priority.startsWith('P3')).length,
         done: tasks.filter(t => t.status === 'Done').length,
         planned: tasks.filter(t => t.status === 'Planned').length,
         progress: tasks.filter(t => t.status.startsWith('Progress')).length
@@ -277,11 +289,21 @@ export default function PmDailyPlannerPage() {
     return stats;
   }, [tasks]);
 
+  const filteredTasks = useMemo(() => {
+    if (!searchTerm) return tasks;
+    const low = searchTerm.toLowerCase();
+    return tasks.filter(t => 
+      t.workContent.toLowerCase().includes(low) || 
+      (t.idMachine && t.idMachine.toLowerCase().includes(low)) ||
+      t.assignees.some(a => a.toLowerCase().includes(low))
+    );
+  }, [tasks, searchTerm]);
+
   const paginatedTasks = useMemo(() => {
-    const sorted = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
+    const sorted = [...filteredTasks].sort((a, b) => a.date.localeCompare(b.date));
     const start = (currentPage - 1) * itemsPerPage;
     return sorted.slice(start, start + itemsPerPage);
-  }, [tasks, currentPage]);
+  }, [filteredTasks, currentPage]);
 
   const tasksByDate = useMemo(() => {
     const grouped: Record<string, DailyAssignment[]> = {};
@@ -292,7 +314,7 @@ export default function PmDailyPlannerPage() {
     return grouped;
   }, [paginatedTasks]);
 
-  const totalPages = Math.ceil(tasks.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -309,7 +331,10 @@ export default function PmDailyPlannerPage() {
       startTime: '08:00',
       stopTime: '16:00',
       idMachine: '',
-      shift: ''
+      workshop: '',
+      shift: '',
+      handoverShifts: [],
+      handoverStaff: []
     });
     setIsDialogOpen(true);
   };
@@ -325,7 +350,10 @@ export default function PmDailyPlannerPage() {
       startTime: task.startTime || '08:00',
       stopTime: task.stopTime || '09:00',
       idMachine: task.idMachine || '',
-      shift: ''
+      workshop: task.workshop || '',
+      shift: '',
+      handoverShifts: task.handoverShifts || [],
+      handoverStaff: task.handoverStaff || []
     });
     setIsDialogOpen(true);
   };
@@ -419,6 +447,9 @@ export default function PmDailyPlannerPage() {
       startTime: formData.startTime,
       stopTime: formData.stopTime,
       idMachine: formData.idMachine,
+      workshop: formData.workshop,
+      handoverShifts: formData.handoverShifts,
+      handoverStaff: formData.handoverStaff,
       checklist: editingTask?.checklist || [],
       notes: editingTask?.notes || '',
       photos: editingTask?.photos || []
@@ -610,26 +641,6 @@ export default function PmDailyPlannerPage() {
           </div>
         </header>
 
-        {/* Stats Dashboard */}
-        <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4 lg:grid-cols-7 sm:gap-2">
-            {[
-                { label: 'Total', value: monthStats.total, color: 'bg-slate-500', textColor: 'text-slate-600' },
-                { label: 'P0 Urgent', value: monthStats.p0, color: 'bg-red-500', textColor: 'text-red-600' },
-                { label: 'P1 High', value: monthStats.p1, color: 'bg-orange-500', textColor: 'text-orange-600' },
-                { label: 'P2 Normal', value: monthStats.p2, color: 'bg-blue-500', textColor: 'text-blue-600' },
-                { label: 'Planned', value: monthStats.planned, color: 'bg-amber-500', textColor: 'text-amber-600' },
-                { label: 'Progress', value: monthStats.progress, color: 'bg-indigo-500', textColor: 'text-indigo-600' },
-                { label: 'Completed', value: monthStats.done, color: 'bg-emerald-500', textColor: 'text-emerald-600' }
-            ].map((stat, i) => (
-                <Card key={i} className="border-0 bg-white shadow-xs overflow-hidden h-10 flex flex-col justify-center">
-                    <div className={`${stat.color} h-[3px] w-full absolute top-0`} />
-                    <CardContent className="p-0 px-2.5 pt-1 flex items-center justify-between gap-1">
-                        <span className={`text-[8px] font-black uppercase tracking-tighter ${stat.textColor} truncate mr-1`}>{stat.label}</span>
-                        <span className="text-sm font-black text-slate-900">{stat.value}</span>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
 
         {viewMode === 'daily' ? (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -797,38 +808,66 @@ export default function PmDailyPlannerPage() {
                         )}
                      </div>
                   </ScrollArea>
-               </CardContent>
-            </Card>
-          </div>
-        ) : (
+                </CardContent>
+             </Card>
+           </div>
+) : (
           /* Month Overview Section */
           <Card className="overflow-hidden border-0 bg-white shadow-md shadow-slate-200/70">
-               <CardHeader className="border-b border-indigo-100 bg-linear-to-r from-indigo-50 via-violet-50 to-fuchsia-50 py-2 px-4">
-                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                     <div>
-                         <CardTitle className="text-lg font-bold">Month Overview: {mounted && date ? format(date, 'MMMM yyyy') : ''}</CardTitle>
-                         <CardDescription>All tasks scheduled for the current month</CardDescription>
-                     </div>
-                     <Badge variant="secondary" className="w-fit bg-indigo-600 text-white hover:bg-indigo-700">
-                         {tasks.length} Total Tasks
-                     </Badge>
-                   </div>
+               <CardHeader className="border-b border-indigo-100 bg-linear-to-r from-indigo-50 via-violet-50 to-fuchsia-50 py-1.5 px-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex flex-col md:flex-row md:items-center gap-4">
+                          <CardTitle className="text-lg font-bold whitespace-nowrap">Month Overview: {mounted && date ? format(date, 'MMMM yyyy') : ''}</CardTitle>
+                          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                              {[
+                                  { label: 'Total', value: monthStats.total, color: 'bg-slate-500' },
+                                  { label: 'P0 (Urgent)', value: monthStats.p0, color: 'bg-red-500' },
+                                  { label: 'P1 (High)', value: monthStats.p1, color: 'bg-orange-500' },
+                                  { label: 'P2 (Medium)', value: monthStats.p2, color: 'bg-blue-500' },
+                                  { label: 'P3 (Low)', value: monthStats.p3, color: 'bg-cyan-500' },
+                                  { label: 'Planned', value: monthStats.planned, color: 'bg-amber-500' },
+                                  { label: 'Progress', value: monthStats.progress, color: 'bg-indigo-500' },
+                                  { label: 'Done', value: monthStats.done, color: 'bg-emerald-500' }
+                              ].map((stat, i) => (
+                                  <div key={i} className="flex items-center gap-1.5 bg-white/60 px-1.5 py-0.5 rounded-md border border-slate-100 h-7 min-w-[45px]">
+                                      <div className={`w-1.5 h-1.5 rounded-full ${stat.color} shrink-0`} />
+                                      <span className="text-[10px] font-bold text-slate-500 uppercase">{stat.label}</span>
+                                      <span className="text-xs font-black text-slate-900 ml-auto">{stat.value}</span>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                           <div className="relative w-full sm:w-64">
+                               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                               <Input
+                                   placeholder="Search tasks, machines, staff..."
+                                   className="h-9 pl-9 bg-white/50 border-slate-200 text-xs"
+                                   value={searchTerm}
+                                   onChange={(e) => setSearchTerm(e.target.value)}
+                               />
+                           </div>
+                           <Badge variant="secondary" className="w-fit shrink-0 bg-indigo-600 text-white hover:bg-indigo-700 h-9 px-3">
+                               {filteredTasks.length} {searchTerm ? 'Matches' : 'Total Tasks'}
+                           </Badge>
+                       </div>
+                    </div>
               </CardHeader>
               <CardContent className="p-0">
-                  <ScrollArea className="h-[600px]">
+                  <ScrollArea className="h-[750px]">
                       {tasks.length === 0 ? (
                           <div className="flex flex-col items-center justify-center h-[300px] text-slate-400 space-y-4">
                               <ClipboardList className="h-12 w-12 opacity-20" />
                               <p>No tasks found for this month.</p>
                           </div>
                       ) : (
-                          <div className="space-y-6 p-4 sm:space-y-8 sm:p-6">
+                          <div className="space-y-3 p-2 sm:space-y-4 sm:p-3">
                               {Object.entries(tasksByDate).map(([dateKey, dayTasks]) => (
-                                  <div key={dateKey} className="space-y-3">
+                                  <div key={dateKey} className="space-y-2">
                                       <div className="flex items-center gap-2 sm:gap-4">
                                           <div className="h-px flex-1 bg-slate-100" />
                                           <h3 
-                                            className="text-sm font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-full cursor-pointer hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
+                                            className="text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-full cursor-pointer hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
                                             onClick={() => {
                                                 setDate(new Date(dateKey));
                                                 setViewMode('daily');
@@ -838,24 +877,24 @@ export default function PmDailyPlannerPage() {
                                           </h3>
                                           <div className="h-px flex-1 bg-slate-100" />
                                       </div>
-                                      <div className="grid gap-3">
+                                      <div className="grid gap-2">
                                           {dayTasks.map(task => (
                                               <div 
                                                 key={task.id} 
-                                                className={`flex items-start gap-3 rounded-xl border border-slate-100 bg-linear-to-r ${getStatusTone(task.status)} p-3 transition-all hover:scale-[1.005] hover:shadow-md group sm:gap-4`}
+                                                className={`flex items-start gap-2.5 rounded-xl border border-slate-100 bg-linear-to-r ${getStatusTone(task.status)} p-2 transition-all hover:scale-[1.005] hover:shadow-md group sm:gap-3`}
                                               >
                                                   <div className="shrink-0 pt-0.5">
                                                       {getStatusIcon(task.status)}
                                                   </div>
                                                   <div className="flex-1 min-w-0">
-                                                      <div className="flex items-center gap-2 mb-1">
+                                                      <div className="flex items-center gap-2 mb-0.5">
                                                           {getPriorityBadge(task.priority)}
                                                           {task.idMachine && <Badge variant="outline" className="text-[10px] h-4">{task.idMachine}</Badge>}
                                                           <span className="text-[10px] font-mono text-slate-500">{task.startTime} - {task.stopTime}</span>
                                                       </div>
-                                                      <p className="text-base font-bold text-slate-900 leading-tight">{task.workContent}</p>
-                                                      <div className="flex flex-wrap items-center gap-2 mt-2">
-                                                          <p className="text-[11px] text-slate-500 font-medium">Assignees:</p>
+                                                      <p className="text-sm font-bold text-slate-900 leading-tight">{task.workContent}</p>
+                                                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                                          <p className="text-[10px] text-slate-500 font-medium">Assignees:</p>
                                                           {task.assignees.length > 0 ? (
                                                               task.assignees.map((name, i) => (
                                                                   <Badge key={i} variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-100 text-[10px] px-1.5 py-0">
@@ -916,153 +955,386 @@ export default function PmDailyPlannerPage() {
 
       {/* Task Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md border-0 bg-white shadow-xl shadow-indigo-200/40">
-          <DialogHeader>
-            <DialogTitle className="text-slate-900">{editingTask ? 'Edit Task' : 'Add New Task'}</DialogTitle>
-            <DialogDescription className="text-slate-600">
-              Assign work for {selectedDateStr}
+        <DialogContent className="max-w-xl p-0 flex flex-col overflow-hidden border-0 bg-white shadow-2xl shadow-indigo-200/50 max-h-[95vh]">
+          <div className="shrink-0 bg-linear-to-r from-indigo-600 via-purple-600 to-fuchsia-600 px-6 py-5 text-white">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
+                <ClipboardList className="h-5 w-5" />
+              </div>
+              {editingTask ? 'Edit Task Details' : 'Create New Task'}
+            </DialogTitle>
+            <DialogDescription className="text-indigo-100/90 mt-1.5 flex items-center gap-2">
+              <CalendarIcon className="h-3.5 w-3.5" />
+              Scheduling for {selectedDateStr}
             </DialogDescription>
-          </DialogHeader>
-            <div className="grid gap-4 py-4">
-            <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-               <Label className="sm:text-right">Date</Label>
-               <Input
-                 value={formData.taskDate}
-                 readOnly
-                 className="bg-slate-50 sm:col-span-3"
-               />
-             </div>
-            <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-               <Label htmlFor="startTime" className="sm:text-right">Start Time</Label>
-                <Input
-                  id="startTime"
-                  type="time"
-                  value={formData.startTime}
-                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="sm:col-span-3"
-                />
-             </div>
-            <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-               <Label htmlFor="stopTime" className="sm:text-right">Stop Time</Label>
-                <Input
-                  id="stopTime"
-                  type="time"
-                  value={formData.stopTime}
-                  onChange={(e) => setFormData({ ...formData, stopTime: e.target.value })}
-                  className="sm:col-span-3"
-                />
-             </div>
+          </div>
+          
+          <ScrollArea className="flex-1 overflow-y-auto max-h-[calc(95vh-160px)]">
+            <div className="px-6 py-6 pb-12 space-y-8">
+              {/* SECTION: Scheduling */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-indigo-600">
+                  <Clock className="h-4 w-4" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider">Scheduling & Time</h4>
+                  <div className="h-px flex-1 bg-indigo-50" />
+                </div>
+                
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-slate-500">Scheduled Date</Label>
+                    <Popover open={openDatePicker} onOpenChange={setOpenDatePicker}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal border-slate-200 h-10",
+                            !formData.taskDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-indigo-500" />
+                          {formData.taskDate ? format(new Date(`${formData.taskDate}T00:00:00`), "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.taskDate ? new Date(`${formData.taskDate}T00:00:00`) : undefined}
+                          onSelect={(d) => {
+                            if (d) {
+                              setFormData({ ...formData, taskDate: format(d, 'yyyy-MM-dd') });
+                              setOpenDatePicker(false);
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="startTime" className="text-xs font-semibold text-slate-500">Start Time</Label>
+                      <Input
+                        id="startTime"
+                        type="time"
+                        value={formData.startTime}
+                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                        className="h-10 border-slate-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="stopTime" className="text-xs font-semibold text-slate-500">End Time</Label>
+                      <Input
+                        id="stopTime"
+                        type="time"
+                        value={formData.stopTime}
+                        onChange={(e) => setFormData({ ...formData, stopTime: e.target.value })}
+                        className="h-10 border-slate-200"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-            <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-              <Label className="sm:text-right">Assignee</Label>
-              <Popover open={openAssignee} onOpenChange={setOpenAssignee}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={openAssignee}
-                    className="justify-between font-normal sm:col-span-3 min-h-[40px] h-auto flex-wrap gap-1"
-                  >
-                    {formData.assignees.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {formData.assignees.map((name) => (
-                          <Badge key={name} variant="secondary" className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200">
+              {/* SECTION: Equipment & Location */}
+              <div className="space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <RefreshCw className="h-4 w-4" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider">Equipment & Workshop</h4>
+                  <div className="h-px flex-1 bg-emerald-50" />
+                </div>
+                
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-slate-500">Workshop</Label>
+                    <Select 
+                      value={formData.workshop || 'none'} 
+                      onValueChange={(v) => setFormData({ ...formData, workshop: v === 'none' ? '' : v, idMachine: '' })}
+                    >
+                      <SelectTrigger className="h-10 border-slate-200 bg-white">
+                        <SelectValue placeholder="Workshop (Optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None / Khác</SelectItem>
+                        {Object.keys(MACHINE_LIST_DATA).map(ws => (
+                          <SelectItem key={ws} value={ws}>{ws}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-slate-500">Machine / Asset</Label>
+                    {formData.workshop ? (
+                      <Select 
+                        value={formData.idMachine} 
+                        onValueChange={(v) => setFormData({ ...formData, idMachine: v })}
+                      >
+                        <SelectTrigger className="h-10 border-slate-200 bg-white">
+                          <SelectValue placeholder="Select Machine" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MACHINE_LIST_DATA[formData.workshop as keyof typeof MACHINE_LIST_DATA]?.map(m => (
+                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input 
+                        placeholder="Manual entry..."
+                        className="h-10 border-slate-200 bg-white"
+                        value={formData.idMachine}
+                        onChange={(e) => setFormData({ ...formData, idMachine: e.target.value })}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION: Task Info */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-amber-600">
+                  <ClipboardList className="h-4 w-4" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider">Task Specification</h4>
+                  <div className="h-px flex-1 bg-amber-50" />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-slate-500">Main Assignee(s)</Label>
+                    <Popover open={openAssignee} onOpenChange={setOpenAssignee}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openAssignee}
+                          className="w-full justify-between font-normal border-slate-200 min-h-[44px] h-auto p-2 flex-wrap gap-1 bg-white"
+                        >
+                          {formData.assignees.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {formData.assignees.map((name) => (
+                                <Badge key={name} variant="secondary" className="bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100 px-1.5 py-0.5">
+                                  {name}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">Select staff members...</span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search staff..." />
+                          <CommandList>
+                            <CommandEmpty>No staff available.</CommandEmpty>
+                            <CommandGroup heading="Staff Matching Shift">
+                              {filteredUsersByShift.map((u) => (
+                                <CommandItem
+                                  key={u.id}
+                                  value={u.displayName}
+                                  onSelect={() => {
+                                    const alreadySelected = formData.assignees.includes(u.displayName);
+                                    setFormData({
+                                      ...formData,
+                                      assignees: alreadySelected
+                                        ? formData.assignees.filter((name) => name !== u.displayName)
+                                        : [...formData.assignees, u.displayName]
+                                    });
+                                  }}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4 text-indigo-600", formData.assignees.includes(u.displayName) ? "opacity-100" : "opacity-0")} />
+                                  {u.displayName}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-[10px] font-medium text-slate-400 italic">
+                      {filteredUsersByShift.length} staff members match this time range.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="work" className="text-xs font-semibold text-slate-500">Work Content / Instructions</Label>
+                    <textarea
+                      id="work"
+                      value={formData.workContent}
+                      onChange={(e) => setFormData({ ...formData, workContent: e.target.value })}
+                      className="min-h-[100px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                      placeholder="Describe the maintenance task..."
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-500">Priority Level</Label>
+                      <Select 
+                        value={formData.priority} 
+                        onValueChange={(v) => setFormData({ ...formData, priority: v as Priority })}
+                      >
+                        <SelectTrigger className="h-10 border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="P0 (Urgent)"><span className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-red-500" /> P0 (Urgent)</span></SelectItem>
+                          <SelectItem value="P1 (High)"><span className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-orange-500" /> P1 (High)</span></SelectItem>
+                          <SelectItem value="P2 (Normal)"><span className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-blue-500" /> P2 (Normal)</span></SelectItem>
+                          <SelectItem value="P3 (Low)"><span className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-slate-400" /> P3 (Low)</span></SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION: Handover & Tracking */}
+              <div className="space-y-4 bg-indigo-50/30 p-4 rounded-xl border border-indigo-100">
+                <div className="flex items-center gap-2 text-indigo-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider">Handover & Status</h4>
+                  <div className="h-px flex-1 bg-indigo-100" />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <Label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                      Shift Handover <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
+                    </Label>
+                    <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                      {['C1', 'C2', 'C3', 'HC', 'C1/12', 'C2/12', 'C3/12', 'HC/12'].map(s => (
+                        <Badge
+                          key={s}
+                          variant={formData.handoverShifts.includes(s) ? "default" : "outline"}
+                          className={cn(
+                            "cursor-pointer transition-all px-2 py-0.5 text-[10px] font-medium h-6",
+                            formData.handoverShifts.includes(s) 
+                              ? "bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-200" 
+                              : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
+                          )}
+                          onClick={() => {
+                            const newShifts = formData.handoverShifts.includes(s)
+                              ? formData.handoverShifts.filter(x => x !== s)
+                              : [...formData.handoverShifts, s];
+                            setFormData({ ...formData, handoverShifts: newShifts });
+                          }}
+                        >
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    {formData.handoverShifts.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between h-10 border-slate-200 bg-white text-sm"
+                          >
+                            <span className="truncate">
+                              {formData.handoverStaff.length > 0
+                                ? `${formData.handoverStaff.length} staff selected for handover`
+                                : "Select handover staff..."}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0" align="start">
+                          <Command className="max-h-[300px]">
+                            <CommandInput placeholder="Search staff..." />
+                            <CommandList>
+                              <CommandEmpty>No staff found in selected shifts.</CommandEmpty>
+                              <CommandGroup>
+                                {workingHours?.filter(item => {
+                                  const dateKey = getWorkingHoursDateKey(date || new Date());
+                                  const shift = String(item.days[dateKey] || '').toUpperCase();
+                                  return formData.handoverShifts.some(s => shift.includes(s));
+                                }).map((u) => (
+                                  <CommandItem
+                                    key={u.id}
+                                    value={u.fullName}
+                                    onSelect={() => {
+                                      const exists = formData.handoverStaff.includes(u.fullName);
+                                      setFormData({
+                                        ...formData,
+                                        handoverStaff: exists 
+                                          ? formData.handoverStaff.filter(name => name !== u.fullName)
+                                          : [...formData.handoverStaff, u.fullName]
+                                      });
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4 text-emerald-600", formData.handoverStaff.includes(u.fullName) ? "opacity-100" : "opacity-0")} />
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-medium">{u.fullName}</span>
+                                      <span className="text-[10px] text-slate-400">Shift: {String(workingHours.find(x => x.id === u.id)?.days[getWorkingHoursDateKey(date || new Date())] || '')}</span>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                    
+                    {formData.handoverStaff.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {formData.handoverStaff.map(name => (
+                          <Badge key={name} variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px] px-2 py-0">
                             {name}
                           </Badge>
                         ))}
                       </div>
-                    ) : (
-                      "Select Assignees..."
                     )}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0">
-                  <Command>
-                    <CommandInput placeholder="Search assignee..." />
-                    <CommandList>
-                      <CommandEmpty>No staff scheduled for this time range.</CommandEmpty>
-                      <CommandGroup heading="Available Staff">
-                        {filteredUsersByShift.map((u) => (
-                          <CommandItem
-                            key={u.id}
-                            value={u.displayName}
-                            onSelect={() => {
-                              const alreadySelected = formData.assignees.includes(u.displayName);
-                              if (alreadySelected) {
-                                setFormData({
-                                  ...formData,
-                                  assignees: formData.assignees.filter((name) => name !== u.displayName)
-                                });
-                              } else {
-                                setFormData({
-                                  ...formData,
-                                  assignees: [...formData.assignees, u.displayName]
-                                });
-                              }
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                formData.assignees.includes(u.displayName) ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {u.displayName}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              <p className="text-[10px] font-medium italic text-indigo-600 sm:col-start-2 sm:col-span-3">
-                {filteredUsersByShift.length} staff members in working-hours match the selected date and time range.
-              </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-slate-500">Current Progress / Status</Label>
+                    <Select 
+                      value={formData.status} 
+                      onValueChange={(v) => setFormData({ ...formData, status: v as Status })}
+                      disabled={!!editingTask && !(() => {
+                        if (!user) return false;
+                        if (user.role === 'ADMIN' || user.role === 'POWER_USER') return true;
+                        if (editingTask.assignees.includes(user.displayName)) return true;
+                        if (editingTask.handoverStaff?.includes(user.displayName)) return true;
+                        return false;
+                      })()}
+                    >
+                      <SelectTrigger className="h-10 border-slate-200 bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Planned">⚪ Planned</SelectItem>
+                        <SelectItem value="Progress 25%">🟡 Progress 25%</SelectItem>
+                        <SelectItem value="Progress 50%">🟠 Progress 50%</SelectItem>
+                        <SelectItem value="Progress 75%">🔵 Progress 75%</SelectItem>
+                        <SelectItem value="Done">🟢 Done</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="grid gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
-              <Label htmlFor="work" className="pt-2 sm:text-right">Task Info</Label>
-              <textarea
-                id="work"
-                value={formData.workContent}
-                onChange={(e) => setFormData({ ...formData, workContent: e.target.value })}
-                className="min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:col-span-3"
-                placeholder="What needs to be done?"
-              />
-            </div>
-            <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-              <Label className="sm:text-right">Priority</Label>
-              <Select value={formData.priority} onValueChange={(v: Priority) => setFormData({...formData, priority: v})}>
-                <SelectTrigger className="sm:col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="P0 (Urgent)">P0 (Urgent)</SelectItem>
-                  <SelectItem value="P1 (High)">P1 (High)</SelectItem>
-                  <SelectItem value="P2 (Normal)">P2 (Normal)</SelectItem>
-                  <SelectItem value="P3 (Low)">P3 (Low)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-              <Label className="sm:text-right">Status</Label>
-              <Select value={formData.status} onValueChange={(v: Status) => setFormData({...formData, status: v})}>
-                <SelectTrigger className="sm:col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Planned">Planned</SelectItem>
-                  <SelectItem value="Progress 25%">Progress 25%</SelectItem>
-                  <SelectItem value="Progress 50%">Progress 50%</SelectItem>
-                  <SelectItem value="Progress 75%">Progress 75%</SelectItem>
-                  <SelectItem value="Done">Done</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter className="pb-safe">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">Cancel</Button>
-            <Button onClick={handleSave} className="w-full bg-linear-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 sm:w-auto">Save Task</Button>
+          </ScrollArea>
+          
+          <DialogFooter className="shrink-0 bg-slate-50 px-6 py-4 border-t border-slate-100 gap-2 flex flex-col sm:flex-row">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDialogOpen(false)} 
+              className="flex-1 sm:flex-none border-slate-200 text-slate-600 hover:bg-slate-100 h-10"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSave} 
+              className="flex-1 sm:flex-none bg-linear-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white shadow-md shadow-indigo-200 transition-all active:scale-95 h-10 font-bold"
+            >
+              {editingTask ? 'Save Changes' : 'Confirm & Save'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

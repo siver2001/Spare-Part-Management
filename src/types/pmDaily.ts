@@ -26,4 +26,6 @@ export interface DailyAssignment {
   checklist: { text: string; checked: boolean }[];
   notes: string;
   photos: string[];
+  handoverShifts?: string[];
+  handoverStaff?: string[];
 }
