@@ -45,19 +45,40 @@ import { getWorkingHoursDateKey } from '@/lib/workingHours';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const SYNC_NAMESPACE = '5d4a1b67-52b4-4e1b-b8d5-9c6684d5f90d';
+const WORKSHOP_LABELS: Record<PMWorkshopType, string> = {
+  foaming: 'Xuong Foaming',
+  insole: 'Xuong Insole'
+};
+
 const WORKSHOP_OPTIONS: Array<{ value: 'all' | PMWorkshopType; label: string }> = [
   { value: 'all', label: 'All Workshops' },
   { value: 'foaming', label: 'Xuong Foaming' },
   { value: 'insole', label: 'Xuong Insole' }
 ];
-const WORKSHOP_LABELS: Record<PMWorkshopType, string> = {
-  foaming: 'Xuong Foaming',
-  insole: 'Xuong Insole'
-};
+
 const SYNC_MODE_OPTIONS = [
   { value: 'week', label: 'Theo Tuan' },
   { value: 'month', label: 'Theo Thang' }
 ] as const;
+
+const PRIORITY_ORDER: Record<string, number> = {
+  'P0 (Urgent)': 0,
+  'P1 (High)': 1,
+  'P2 (Normal)': 2,
+  'P3 (Low)': 3,
+};
+
+const sortTasksLogic = (a: DailyAssignment, b: DailyAssignment) => {
+  // 1. Priority sort
+  const pA = PRIORITY_ORDER[a.priority] ?? 99;
+  const pB = PRIORITY_ORDER[b.priority] ?? 99;
+  if (pA !== pB) return pA - pB;
+
+  // 2. Start time sort
+  const tA = a.startTime || '00:00';
+  const tB = b.startTime || '00:00';
+  return tA.localeCompare(tB);
+};
 
 type SyncMode = (typeof SYNC_MODE_OPTIONS)[number]['value'];
 
@@ -264,7 +285,8 @@ export default function PmDailyPlannerPage() {
 
   const dailyTasks = useMemo(() => {
     if (!mounted) return [];
-    return tasks.filter(t => t.date === selectedDateStr);
+    const filtered = tasks.filter(t => t.date === selectedDateStr);
+    return [...filtered].sort(sortTasksLogic);
   }, [tasks, selectedDateStr, mounted]);
 
   const loadMonthTasks = useCallback(async () => {
@@ -300,7 +322,14 @@ export default function PmDailyPlannerPage() {
   }, [tasks, searchTerm]);
 
   const paginatedTasks = useMemo(() => {
-    const sorted = [...filteredTasks].sort((a, b) => a.date.localeCompare(b.date));
+    const sorted = [...filteredTasks].sort((a, b) => {
+        // Primary: Date
+        const dateDiff = a.date.localeCompare(b.date);
+        if (dateDiff !== 0) return dateDiff;
+        
+        // Secondary: Priority & Time
+        return sortTasksLogic(a, b);
+    });
     const start = (currentPage - 1) * itemsPerPage;
     return sorted.slice(start, start + itemsPerPage);
   }, [filteredTasks, currentPage]);
