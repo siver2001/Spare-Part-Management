@@ -15,7 +15,8 @@ import {
   AlertCircle,
   CheckCircle2,
   ClipboardList,
-  Search
+  Search,
+  History
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
@@ -190,6 +191,7 @@ export default function PmDailyPlannerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [workingHours, setWorkingHours] = useState<Awaited<ReturnType<typeof SupabaseService.getWorkingHours>>>(initialWorkingHoursRef.current);
+  const [plannerMode, setPlannerMode] = useState<'active' | 'history'>('active');
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -285,9 +287,16 @@ export default function PmDailyPlannerPage() {
 
   const dailyTasks = useMemo(() => {
     if (!mounted) return [];
-    const filtered = tasks.filter(t => t.date === selectedDateStr);
+    let filtered = tasks.filter(t => t.date === selectedDateStr);
+    
+    if (plannerMode === 'active') {
+        filtered = filtered.filter(t => t.status !== 'Done');
+    } else {
+        filtered = filtered.filter(t => t.status === 'Done');
+    }
+    
     return [...filtered].sort(sortTasksLogic);
-  }, [tasks, selectedDateStr, mounted]);
+  }, [tasks, selectedDateStr, mounted, plannerMode]);
 
   const loadMonthTasks = useCallback(async () => {
     if (!date || !mounted) return;
@@ -312,14 +321,21 @@ export default function PmDailyPlannerPage() {
   }, [tasks]);
 
   const filteredTasks = useMemo(() => {
-    if (!searchTerm) return tasks;
+    let baseTasks = tasks;
+    if (plannerMode === 'active') {
+        baseTasks = baseTasks.filter(t => t.status !== 'Done');
+    } else {
+        baseTasks = baseTasks.filter(t => t.status === 'Done');
+    }
+
+    if (!searchTerm) return baseTasks;
     const low = searchTerm.toLowerCase();
-    return tasks.filter(t => 
+    return baseTasks.filter(t => 
       t.workContent.toLowerCase().includes(low) || 
       (t.idMachine && t.idMachine.toLowerCase().includes(low)) ||
       t.assignees.some(a => a.toLowerCase().includes(low))
     );
-  }, [tasks, searchTerm]);
+  }, [tasks, searchTerm, plannerMode]);
 
   const paginatedTasks = useMemo(() => {
     const sorted = [...filteredTasks].sort((a, b) => {
@@ -606,12 +622,24 @@ export default function PmDailyPlannerPage() {
 
   const getStatusIcon = (s: string) => {
     switch (s) {
-      case 'Done': return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-      case 'Progress 25%': return <Clock className="h-4 w-4 text-blue-400 animate-pulse" />;
-      case 'Progress 50%': return <Clock className="h-4 w-4 text-blue-500 animate-pulse" />;
-      case 'Progress 75%': return <Clock className="h-4 w-4 text-indigo-500 animate-pulse" />;
-      case 'Planned': return <CalendarIcon className="h-4 w-4 text-amber-500" />;
       default: return <AlertCircle className="h-4 w-4 text-amber-500" />;
+    }
+  };
+  
+  const getStatusBadge = (s: string) => {
+    switch (s) {
+      case 'Done': 
+        return <Badge className="bg-emerald-500 text-white border-emerald-600 shadow-sm shadow-emerald-200 uppercase text-[9px] font-black h-4 px-1.5 flex items-center gap-1"><CheckCircle2 className="h-2.5 w-2.5" /> {s}</Badge>;
+      case 'Progress 25%': 
+        return <Badge className="bg-sky-500 text-white border-sky-600 shadow-sm shadow-sky-200 animate-pulse uppercase text-[9px] font-black h-4 px-1.5 flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {s}</Badge>;
+      case 'Progress 50%': 
+        return <Badge className="bg-blue-600 text-white border-blue-700 shadow-sm shadow-blue-200 animate-pulse uppercase text-[9px] font-black h-4 px-1.5 flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {s}</Badge>;
+      case 'Progress 75%': 
+        return <Badge className="bg-indigo-600 text-white border-indigo-700 shadow-sm shadow-indigo-200 animate-pulse uppercase text-[9px] font-black h-4 px-1.5 flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {s}</Badge>;
+      case 'Planned': 
+        return <Badge className="bg-amber-400 text-amber-950 border-amber-500 shadow-sm shadow-amber-100 uppercase text-[9px] font-black h-4 px-1.5 flex items-center gap-1"><CalendarIcon className="h-2.5 w-2.5" /> {s}</Badge>;
+      default: 
+        return <Badge variant="outline" className="text-[9px] h-4 font-black uppercase">{s}</Badge>;
     }
   };
 
@@ -655,6 +683,24 @@ export default function PmDailyPlannerPage() {
                     className={`h-8 flex-1 text-xs ${viewMode === 'monthly' ? 'bg-white text-indigo-900 shadow-sm' : 'text-white hover:bg-white/10'}`}
                 >
                     Month Overview
+                </Button>
+            </div>
+            <div className="mr-0 flex gap-1 rounded-lg border border-white/20 bg-white/10 p-1 sm:mr-2">
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setPlannerMode('active')}
+                    className={`h-8 flex-1 text-xs gap-1.5 ${plannerMode === 'active' ? 'bg-emerald-500 text-white shadow-sm' : 'text-white hover:bg-white/10'}`}
+                >
+                    <Clock className="h-3 w-3" /> Active
+                </Button>
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setPlannerMode('history')}
+                    className={`h-8 flex-1 text-xs gap-1.5 ${plannerMode === 'history' ? 'bg-indigo-500 text-white shadow-sm' : 'text-white hover:bg-white/10'}`}
+                >
+                    <History className="h-3 w-3" /> Done History
                 </Button>
             </div>
             {isAdmin && (
@@ -745,10 +791,10 @@ export default function PmDailyPlannerPage() {
                                     <Clock className="mr-1.5 h-3.5 w-3.5 text-indigo-500" />
                                     {task.startTime || '08:00'}{task.stopTime ? ` - ${task.stopTime}` : ''}
                                   </span>
-                                  <span className="font-medium">{task.status}</span>
+                                  {getStatusBadge(task.status)}
                                 </div>
 
-                                {isAdmin && (
+                                {isAdmin && task.status !== 'Done' && (
                                   <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/60 pt-4">
                                     <Button variant="outline" className="bg-white/80" onClick={() => handleOpenEdit(task)}>
                                       <Edit className="mr-2 h-4 w-4" />
@@ -812,11 +858,10 @@ export default function PmDailyPlannerPage() {
                                   </TableCell>
                                   <TableCell className="align-top">
                                      <div className="flex items-center gap-2 py-1">
-                                        {getStatusIcon(task.status)}
-                                        <span className="text-xs font-semibold text-slate-600">{task.status}</span>
+                                        {getStatusBadge(task.status)}
                                      </div>
                                   </TableCell>
-                                  {isAdmin && (
+                                  {isAdmin && task.status !== 'Done' && (
                                     <TableCell className="text-right align-top">
                                       <div className="flex items-center justify-end gap-1">
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-indigo-600" onClick={() => handleOpenEdit(task)}>
@@ -846,7 +891,9 @@ export default function PmDailyPlannerPage() {
                <CardHeader className="border-b border-indigo-100 bg-linear-to-r from-indigo-50 via-violet-50 to-fuchsia-50 py-1.5 px-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="flex flex-col md:flex-row md:items-center gap-4">
-                          <CardTitle className="text-lg font-bold whitespace-nowrap">Month Overview: {mounted && date ? format(date, 'MMMM yyyy') : ''}</CardTitle>
+                          <CardTitle className="text-lg font-bold whitespace-nowrap">
+                            {plannerMode === 'active' ? 'Active Tasks' : 'History: Done Tasks'} - {mounted && date ? format(date, 'MMMM yyyy') : ''}
+                          </CardTitle>
                           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
                               {[
                                   { label: 'Total', value: monthStats.total, color: 'bg-slate-500' },
@@ -918,6 +965,7 @@ export default function PmDailyPlannerPage() {
                                                   <div className="flex-1 min-w-0">
                                                       <div className="flex items-center gap-2 mb-0.5">
                                                           {getPriorityBadge(task.priority)}
+                                                          {getStatusBadge(task.status)}
                                                           {task.idMachine && <Badge variant="outline" className="text-[10px] h-4">{task.idMachine}</Badge>}
                                                           <span className="text-[10px] font-mono text-slate-500">{task.startTime} - {task.stopTime}</span>
                                                       </div>
@@ -935,7 +983,7 @@ export default function PmDailyPlannerPage() {
                                                           )}
                                                       </div>
                                                   </div>
-                                                   {isAdmin && (
+                                                   {isAdmin && task.status !== 'Done' && (
                                                        <Button 
                                                          variant="ghost" 
                                                          size="icon" 
