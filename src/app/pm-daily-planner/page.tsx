@@ -643,6 +643,38 @@ export default function PmDailyPlannerPage() {
     }
   };
 
+  const getTimeBadge = (start: string, stop: string) => {
+    const s = start || '08:00';
+    const e = stop || '16:00';
+    const timeRange = `${s} - ${e}`;
+    const h = parseInt(s.split(':')[0], 10);
+    
+    let colorClass = "bg-slate-100 text-slate-700 border-slate-200"; // Default
+    let label = "";
+
+    if (h >= 6 && h < 14) {
+        colorClass = "bg-blue-50 text-blue-700 border-blue-200 shadow-sm shadow-blue-100";
+        label = "C1";
+    } else if (h >= 14 && h < 22) {
+        colorClass = "bg-orange-50 text-orange-700 border-orange-200 shadow-sm shadow-orange-100";
+        label = "C2";
+    } else if (h >= 22 || h < 6) {
+        colorClass = "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm shadow-indigo-100";
+        label = "C3";
+    } else if (h >= 8 && h < 17) {
+        colorClass = "bg-sky-50 text-sky-700 border-sky-200 shadow-sm shadow-sky-100";
+        label = "HC";
+    }
+
+    return (
+        <Badge variant="outline" className={cn("text-[10px] font-mono h-4 px-1.5 flex items-center gap-1", colorClass)}>
+            <Clock className="h-2.5 w-2.5" />
+            {label && <span className="font-black border-r border-current pr-1 mr-1">{label}</span>}
+            {timeRange}
+        </Badge>
+    );
+  };
+
   const getStatusTone = (status: string) => {
     switch (status) {
       case 'Done':
@@ -787,10 +819,7 @@ export default function PmDailyPlannerPage() {
                                 </div>
 
                                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                                  <span className="inline-flex items-center rounded-full bg-white/80 px-2.5 py-1 shadow-sm">
-                                    <Clock className="mr-1.5 h-3.5 w-3.5 text-indigo-500" />
-                                    {task.startTime || '08:00'}{task.stopTime ? ` - ${task.stopTime}` : ''}
-                                  </span>
+                                  {getTimeBadge(task.startTime, task.stopTime)}
                                   {getStatusBadge(task.status)}
                                 </div>
 
@@ -825,10 +854,8 @@ export default function PmDailyPlannerPage() {
                               {dailyTasks.map((task) => (
                                 <TableRow key={task.id} className={`group bg-linear-to-r ${getStatusTone(task.status)} transition-colors hover:brightness-[0.98]`}>
                                   <TableCell className="font-medium align-top">
-                                    <div className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-slate-700 shadow-sm">
-                                      <Clock className="h-3.5 w-3.5 text-indigo-500" />
-                                      {task.startTime || '08:00'}
-                                      {task.stopTime ? ` - ${task.stopTime}` : ''}
+                                    <div className="py-1">
+                                      {getTimeBadge(task.startTime, task.stopTime)}
                                     </div>
                                   </TableCell>
                                   <TableCell className="align-top">
@@ -963,11 +990,11 @@ export default function PmDailyPlannerPage() {
                                                       {getStatusIcon(task.status)}
                                                   </div>
                                                   <div className="flex-1 min-w-0">
-                                                      <div className="flex items-center gap-2 mb-0.5">
+                                                      <div className="flex flex-wrap items-center gap-2 mb-0.5">
                                                           {getPriorityBadge(task.priority)}
                                                           {getStatusBadge(task.status)}
+                                                          {getTimeBadge(task.startTime, task.stopTime)}
                                                           {task.idMachine && <Badge variant="outline" className="text-[10px] h-4">{task.idMachine}</Badge>}
-                                                          <span className="text-[10px] font-mono text-slate-500">{task.startTime} - {task.stopTime}</span>
                                                       </div>
                                                       <p className="text-sm font-bold text-slate-900 leading-tight">{task.workContent}</p>
                                                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
