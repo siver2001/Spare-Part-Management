@@ -10,7 +10,11 @@ import {
   Users, 
   Search, 
   AlertCircle,
-  Save
+  Save,
+  Filter,
+  Check,
+  ChevronDown,
+  Calendar
 } from 'lucide-react';
 
 import { 
@@ -20,6 +24,9 @@ import {
     SelectTrigger, 
     SelectValue 
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { ProtectedLayout } from '@/components/layout/ProtectedLayout';
 import { Button } from '@/components/ui/button';
@@ -43,6 +50,7 @@ export default function WorkingHoursPage() {
   const [selectedDateKey, setSelectedDateKey] = useState('');
   const [pendingChanges, setPendingChanges] = useState<Record<string, Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
+  const [hiddenDateKeys, setHiddenDateKeys] = useState<string[]>([]);
 
   const SHIFT_OPTIONS = ['AL', 'HL', 'OFF', 'OFFB', 'C1', 'C2', 'C3', 'HC', 'C1/12', 'C2/12', 'C3/12', 'HC/12'];
 
@@ -282,6 +290,30 @@ export default function WorkingHoursPage() {
     [data]
   );
 
+  const visibleHeaders = useMemo(() => {
+    return dynamicHeaders.filter(h => !hiddenDateKeys.includes(h));
+  }, [dynamicHeaders, hiddenDateKeys]);
+
+  const toggleDateVisibility = (dateKey: string) => {
+    setHiddenDateKeys(prev => 
+      prev.includes(dateKey) 
+        ? prev.filter(k => k !== dateKey)
+        : [...prev, dateKey]
+    );
+  };
+
+  const hidePastDates = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const pastKeys = dynamicHeaders.filter(h => {
+        const date = new Date(h);
+        return date < today;
+    });
+    
+    setHiddenDateKeys(pastKeys);
+  };
+
   useEffect(() => {
     if (dynamicHeaders.length === 0) {
       if (selectedDateKey !== '') {
@@ -381,7 +413,7 @@ export default function WorkingHoursPage() {
                         <Users className="h-3.5 w-3.5 text-blue-600" />
                         <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">Danh sách nhân viên</span>
                     </div>
-                    <div className="flex items-center gap-3 flex-1 justify-end max-w-[450px]">
+                    <div className="flex items-center gap-3 flex-1 justify-end">
                         {Object.keys(pendingChanges).length > 0 && (
                             <Button 
                                 size="sm" 
@@ -393,7 +425,7 @@ export default function WorkingHoursPage() {
                                 {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
                             </Button>
                         )}
-                        <div className="relative flex-1 max-w-[300px]">
+                        <div className="relative flex-1 max-w-[200px]">
                             <Search className="absolute left-2.5 top-1.5 h-3 w-3 text-slate-400" />
                             <Input 
                                 placeholder="Tìm kiếm..." 
@@ -402,6 +434,67 @@ export default function WorkingHoursPage() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-bold border-slate-200 bg-white/50 hover:bg-white">
+                                    <Filter className="h-3 w-3 mr-1 text-slate-500" />
+                                    Ẩn/Hiện cột
+                                    {hiddenDateKeys.length > 0 && (
+                                        <span className="ml-1 px-1 bg-blue-100 text-blue-600 rounded-full text-[9px]">
+                                            {hiddenDateKeys.length}
+                                        </span>
+                                    )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-0" align="end">
+                                <div className="p-3 border-b bg-slate-50/50">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-700">Chọn cột hiển thị</span>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-6 text-[10px] text-blue-600 hover:text-blue-700 p-0"
+                                            onClick={() => setHiddenDateKeys([])}
+                                        >
+                                            Hiện tất cả
+                                        </Button>
+                                    </div>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="w-full mt-2 h-7 text-[10px] font-medium"
+                                        onClick={hidePastDates}
+                                    >
+                                        <Calendar className="h-3 w-3 mr-1" />
+                                        Ẩn các ngày đã qua
+                                    </Button>
+                                </div>
+                                <ScrollArea className="h-[300px]">
+                                    <div className="p-2 space-y-1">
+                                        {dynamicHeaders.map(h => (
+                                            <div 
+                                                key={h} 
+                                                className="flex items-center space-x-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer transition-colors"
+                                                onClick={() => toggleDateVisibility(h)}
+                                            >
+                                                <Checkbox 
+                                                    id={`col-${h}`} 
+                                                    checked={!hiddenDateKeys.includes(h)}
+                                                    onCheckedChange={() => toggleDateVisibility(h)}
+                                                    className="h-3.5 w-3.5"
+                                                />
+                                                <label 
+                                                    htmlFor={`col-${h}`}
+                                                    className="text-xs font-medium text-slate-600 cursor-pointer flex-1"
+                                                >
+                                                    {formatWorkingHoursDate(h)}
+                                                </label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                            </PopoverContent>
+                        </Popover>
                     </div>
                 </div>
             </CardHeader>
@@ -476,10 +569,10 @@ export default function WorkingHoursPage() {
                             <table className="w-full border-separate border-spacing-0 text-sm">
                                 <thead className="relative z-30">
                                     <tr className="hover:bg-transparent">
-                                        <th className="min-w-[80px] font-black border-b border-r bg-slate-200 text-slate-900 text-[11px] uppercase p-2 sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] text-left">MSNV</th>
-                                        <th className="min-w-[200px] font-black border-b border-r bg-slate-200 text-slate-900 text-[11px] uppercase p-2 sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] text-left">HỌ TÊN</th>
+                                        <th className="w-[80px] min-w-[80px] font-black border-b border-r bg-slate-200 text-slate-900 text-[11px] uppercase p-2 sticky top-0 left-0 z-50 shadow-[1px_1px_0_0_rgba(0,0,0,0.1)] text-left">MSNV</th>
+                                        <th className="w-[200px] min-w-[200px] font-black border-b border-r bg-slate-200 text-slate-900 text-[11px] uppercase p-2 sticky top-0 left-[80px] z-50 shadow-[1px_1px_0_0_rgba(0,0,0,0.1)] text-left">HỌ TÊN</th>
                                         <th className="min-w-[150px] font-black border-b border-r bg-slate-200 text-slate-900 text-[11px] uppercase p-2 sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] text-left">BỘ PHẬN</th>
-                                        {dynamicHeaders.map(h => (
+                                        {visibleHeaders.map(h => (
                                             <th key={h} className="min-w-[60px] text-center font-black px-1 whitespace-nowrap border-b border-r bg-blue-100 text-blue-900 text-[11px] sticky top-0 z-40 shadow-[0_1px_0_0_rgba(0,0,0,0.1)]">
                                                 {formatWorkingHoursDate(h)}
                                             </th>
@@ -489,10 +582,10 @@ export default function WorkingHoursPage() {
                                 <tbody>
                                     {filteredData.map((item) => (
                                         <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
-                                            <td className="font-bold text-[11px] border-r border-b p-2 text-slate-700 bg-slate-50/50 group-hover:bg-white">{item.msnv}</td>
-                                            <td className="font-black text-[12px] border-r border-b p-2 text-slate-900 whitespace-nowrap bg-white">{item.fullName}</td>
+                                            <td className="w-[80px] min-w-[80px] font-bold text-[11px] border-r border-b p-2 text-slate-700 bg-slate-50 sticky left-0 z-20 group-hover:bg-blue-50 transition-colors">{item.msnv}</td>
+                                            <td className="w-[200px] min-w-[200px] font-black text-[12px] border-r border-b p-2 text-slate-900 whitespace-nowrap bg-white sticky left-[80px] z-20 group-hover:bg-blue-50 transition-colors">{item.fullName}</td>
                                             <td className="font-bold text-[11px] text-slate-600 border-r border-b p-2">{item.department}</td>
-                                            {dynamicHeaders.map(h => (
+                                            {visibleHeaders.map(h => (
                                                 <td 
                                                     key={h} 
                                                     className={cn(
