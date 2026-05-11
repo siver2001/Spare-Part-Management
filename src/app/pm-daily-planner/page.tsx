@@ -659,11 +659,20 @@ export default function PmDailyPlannerPage() {
     await pmDailyDb.saveTask(task);
     toast.success(editingTask ? "Task updated" : "Task added");
     setIsDialogOpen(false);
+    // Update local state immediately for better UX and to avoid race conditions
+    setTasks(prev => {
+      const exists = prev.some(t => t.id === task.id);
+      if (exists) {
+        return prev.map(t => t.id === task.id ? task : t);
+      }
+      return [...prev, task];
+    });
     loadMonthTasks();
   };
 
   const handleDelete = async (task: DailyAssignment) => {
     await pmDailyDb.deleteTask(task.id);
+    setTasks(prev => prev.filter(t => t.id !== task.id));
     setTaskPendingDelete(null);
     loadMonthTasks();
     toast.success("Task deleted");
