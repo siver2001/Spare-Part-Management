@@ -95,7 +95,11 @@ export const pmDailyDb = {
   },
 
   async saveTask(task: DailyAssignment): Promise<void> {
-    await supabase.from('pm_daily_assignments').upsert(toPayload(task));
+    const { error } = await supabase.from('pm_daily_assignments').upsert(toPayload(task));
+    if (error) {
+      console.error('Error saving task:', error);
+      throw error;
+    }
     invalidateClientCacheByPrefix(PM_DAILY_CACHE_PREFIX);
     this.cleanupOldTasks();
   },
@@ -135,7 +139,11 @@ export const pmDailyDb = {
   },
 
   async deleteTask(id: string): Promise<void> {
-    await supabase.from('pm_daily_assignments').delete().eq('id', id);
+    const { error } = await supabase.from('pm_daily_assignments').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting task:', error);
+      throw error;
+    }
     invalidateClientCacheByPrefix(PM_DAILY_CACHE_PREFIX);
   },
 

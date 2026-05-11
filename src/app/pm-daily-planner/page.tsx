@@ -425,7 +425,7 @@ export default function PmDailyPlannerPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [date, tasks.length]);
+  }, [date, tasks.length, plannerMode, searchTerm]);
 
   const handleOpenAdd = () => {
     setEditingTask(null);
@@ -656,7 +656,8 @@ export default function PmDailyPlannerPage() {
       photos: editingTask?.photos || []
     };
 
-    await pmDailyDb.saveTask(task);
+    try {
+      await pmDailyDb.saveTask(task);
     toast.success(editingTask ? "Task updated" : "Task added");
     setIsDialogOpen(false);
     // Update local state immediately for better UX and to avoid race conditions
@@ -668,14 +669,23 @@ export default function PmDailyPlannerPage() {
       return [...prev, task];
     });
     loadMonthTasks();
+    } catch (error) {
+      console.error("Failed to save task:", error);
+      toast.error("Failed to save task. Please check your connection or permissions.");
+    }
   };
 
   const handleDelete = async (task: DailyAssignment) => {
-    await pmDailyDb.deleteTask(task.id);
+    try {
+      await pmDailyDb.deleteTask(task.id);
     setTasks(prev => prev.filter(t => t.id !== task.id));
     setTaskPendingDelete(null);
     loadMonthTasks();
-    toast.success("Task deleted");
+      toast.success("Task deleted");
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      toast.error("Failed to delete task. Please try again.");
+    }
   };
 
   const handleSyncPmSchedule = async () => {
