@@ -34,7 +34,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { DailyAssignment, Priority, Status } from '@/types/pmDaily';
+import { DailyAssignment, Priority, Status, HandoverLog, TaskConfirmation } from '@/types/pmDaily';
 import { pmDailyDb } from '@/lib/pmDailyDb';
 import { supabase } from '@/lib/supabase';
 import { getCurrentIsoWeek, getIsoWeekYear, getMonthFromIsoWeek, normalizePmChecklistTemplate } from '@/lib/pmSchedule';
@@ -62,6 +62,20 @@ const SYNC_MODE_OPTIONS = [
   { value: 'month', label: 'Theo Thang' }
 ] as const;
 
+
+const PRIORITY_ORDER_LIST: Priority[] = ['P3 (Low)', 'P2 (Normal)', 'P1 (High)', 'P0 (Urgent)'];
+
+const getEffectivePriority = (task: DailyAssignment): Priority => {
+    if (task.status === 'Done') return task.priority;
+    const deadlineStr = `${task.endDate || task.date}T${task.stopTime || '23:59'}:00`;
+    const deadline = new Date(deadlineStr);
+    const now = new Date();
+    if (now <= deadline) return task.priority;
+    const currentIndex = PRIORITY_ORDER_LIST.indexOf(task.priority);
+    if (currentIndex === -1) return task.priority;
+    return PRIORITY_ORDER_LIST[Math.min(currentIndex + 1, PRIORITY_ORDER_LIST.length - 1)];
+};
+
 const PRIORITY_ORDER: Record<string, number> = {
   'P0 (Urgent)': 0,
   'P1 (High)': 1,
@@ -71,8 +85,8 @@ const PRIORITY_ORDER: Record<string, number> = {
 
 const sortTasksLogic = (a: DailyAssignment, b: DailyAssignment) => {
   // 1. Priority sort
-  const pA = PRIORITY_ORDER[a.priority] ?? 99;
-  const pB = PRIORITY_ORDER[b.priority] ?? 99;
+  const pA = PRIORITY_ORDER[getEffectivePriority(a)] ?? 99;
+  const pB = PRIORITY_ORDER[getEffectivePriority(b)] ?? 99;
   if (pA !== pB) return pA - pB;
 
   // 2. Start time sort
@@ -161,7 +175,8 @@ function getSyncDateForWeek(year: number, week: number, mode: SyncMode, selected
 
 export default function PmDailyPlannerPage() {
   const { user } = useAuth();
-  const isAdmin = user && (user.role === 'ADMIN' || user.role === 'POWER_USER');
+  const isPowerUser = user && (user.role === 'ADMIN' || user.role === 'POWER_USER');
+  const isSuperAdmin = user?.role === 'ADMIN';
   const initialDateRef = useRef(new Date());
   const initialMonthStartRef = useRef(format(startOfMonth(initialDateRef.current), 'yyyy-MM-dd'));
   const initialMonthEndRef = useRef(format(endOfMonth(initialDateRef.current), 'yyyy-MM-dd'));
@@ -213,9 +228,16 @@ export default function PmDailyPlannerPage() {
     fetchData();
   }, []);
 
+    // New Handover State
+  const [isHandoverMode, setIsHandoverMode] = useState(false);
+  const [tempHandoverNote, setTempHandoverNote] = useState('');
+  const [tempHandoverStaff, setTempHandoverStaff] = useState<string[]>([]);
+  const [tempHandoverShifts, setTempHandoverShifts] = useState<string[]>([]);
+
   // Form State
   const [formData, setFormData] = useState({
     taskDate: '',
+    taskEndDate: '',
     assignees: [] as string[],
     workContent: '',
     priority: 'P2 (Normal)' as Priority,
@@ -226,7 +248,9 @@ export default function PmDailyPlannerPage() {
     workshop: '',
     shift: '',
     handoverShifts: [] as string[],
-    handoverStaff: [] as string[]
+    handoverStaff: [] as string[],
+    handoverLogs: [] as HandoverLog[],
+    confirmations: [] as TaskConfirmation[]
   });
 
   const selectedDateStr = useMemo(() => {
@@ -253,6 +277,44 @@ export default function PmDailyPlannerPage() {
     if (!mounted || !date) return new Date().getFullYear();
     return date.getFullYear();
   }, [date, mounted]);
+  const canEditTask = useCallback((task: DailyAssignment) => {
+    if (!user) return false;
+    // Chỉ ADMIN thực thụ mới có quyền sửa MỌI task. 
+    // POWER_USER và USER chỉ được sửa task mình tạo hoặc được phân công.
+    if (isSuperAdmin) return true;
+    
+    const normalize = (n: string | null | undefined) => String(n || '').trim().toLowerCase();
+    const currentName = normalize(user.displayName);
+    const currentUsername = normalize(user.username);
+    const currentUserId = user.id;
+    
+    if (!currentName && !currentUsername) return false;
+
+    // Kiểm tra nếu là người tạo task
+    const isCreator = task.createdById === currentUserId || (task.createdBy && normalize(task.createdBy) === currentName);
+    if (isCreator) return true;
+
+    const isAssignee = task.assignees?.some(name => {
+      const n = normalize(name);
+      return n !== '' && (n === currentName || n === currentUsername);
+    });
+    
+    const isHandover = task.handoverStaff?.some(name => {
+      const n = normalize(name);
+      return n !== '' && (n === currentName || n === currentUsername);
+    });
+    
+    return !!(isAssignee || isHandover);
+  }, [user]);
+
+
+
+  const isReadOnly = useMemo(() => {
+    if (!editingTask) return false;
+    if (isSuperAdmin) return false;
+    if (editingTask.status === 'Done') return true;
+    return !canEditTask(editingTask);
+  }, [editingTask, user, canEditTask]);
 
   useEffect(() => {
     if (!mounted || !date) return;
@@ -369,6 +431,7 @@ export default function PmDailyPlannerPage() {
     setEditingTask(null);
     setFormData({
       taskDate: selectedDateStr,
+      taskEndDate: selectedDateStr,
       assignees: [],
       workContent: '',
       priority: 'P2 (Normal)',
@@ -379,7 +442,9 @@ export default function PmDailyPlannerPage() {
       workshop: '',
       shift: '',
       handoverShifts: [],
-      handoverStaff: []
+      handoverStaff: [],
+      handoverLogs: [],
+      confirmations: []
     });
     setIsDialogOpen(true);
   };
@@ -388,6 +453,7 @@ export default function PmDailyPlannerPage() {
     setEditingTask(task);
     setFormData({
       taskDate: task.date,
+      taskEndDate: task.endDate || task.date,
       assignees: task.assignees || [],
       workContent: task.workContent,
       priority: task.priority,
@@ -398,7 +464,9 @@ export default function PmDailyPlannerPage() {
       workshop: task.workshop || '',
       shift: '',
       handoverShifts: task.handoverShifts || [],
-      handoverStaff: task.handoverStaff || []
+      handoverStaff: task.handoverStaff || [],
+      handoverLogs: task.handoverLogs || [],
+      confirmations: task.confirmations || []
     });
     setIsDialogOpen(true);
   };
@@ -447,6 +515,33 @@ export default function PmDailyPlannerPage() {
       a.displayName.localeCompare(b.displayName)
     );
   }, [users, workingHours, assignmentDate, formData.startTime, formData.stopTime]);
+  const filteredHandoverUsers = useMemo(() => {
+    if (tempHandoverShifts.length === 0) return users;
+    if (!assignmentDate) return [];
+
+    const dateLabel = getWorkingHoursDateKey(assignmentDate);
+    const userByMsnv = new Map(users.map(u => [normalizeIdentity(u.username), u] as const));
+    const userByDisplayName = new Map(users.map(u => [normalizeIdentity(u.displayName), u] as const));
+
+    const matchedUsers = workingHours
+      .filter((wh) => {
+        const shiftOnDate = String(wh.days[dateLabel] || '').toUpperCase().trim();
+        if (!shiftOnDate) return false;
+        // Check if any of the selected handover shifts match the user's shift on that day
+        return tempHandoverShifts.some(s => shiftOnDate.includes(s));
+      })
+      .map((wh) => {
+        const msnvMatch = userByMsnv.get(normalizeIdentity(wh.msnv));
+        if (msnvMatch) return msnvMatch;
+        return userByDisplayName.get(normalizeIdentity(wh.fullName)) || null;
+      })
+      .filter((item): item is User => Boolean(item));
+
+    return Array.from(new Map(matchedUsers.map((item) => [item.id, item])).values()).sort((a, b) =>
+      a.displayName.localeCompare(b.displayName)
+    );
+  }, [users, workingHours, assignmentDate, tempHandoverShifts]);
+
 
   useEffect(() => {
     if (formData.assignees.length === 0) {
@@ -464,6 +559,62 @@ export default function PmDailyPlannerPage() {
       }));
     }
   }, [filteredUsersByShift, formData.assignees]);
+
+  
+  const handleAddHandoverLog = () => {
+    if (!tempHandoverNote || tempHandoverStaff.length === 0) {
+      toast.error("Please provide a note and select staff for handover.");
+      return;
+    }
+
+    const newLog: HandoverLog = {
+      fromStaff: user?.displayName || 'Unknown',
+      toStaff: tempHandoverStaff,
+      shifts: tempHandoverShifts,
+      note: tempHandoverNote,
+      timestamp: new Date().toISOString()
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      handoverLogs: [...prev.handoverLogs, newLog],
+      // Also update the legacy handoverStaff for backward compatibility if needed
+      handoverStaff: Array.from(new Set([...prev.handoverStaff, ...tempHandoverStaff]))
+    }));
+
+    setIsHandoverMode(false);
+    setTempHandoverNote('');
+    setTempHandoverStaff([]);
+    setTempHandoverShifts([]);
+    toast.success("Handover log added locally. Save task to persist.");
+  };
+
+  const handleConfirmTask = async (task: DailyAssignment) => {
+    if (!user) return;
+    const staffName = user.displayName;
+    if (task.confirmations?.some(c => c.staffName === staffName)) {
+        toast.info("You have already confirmed this task.");
+        return;
+    }
+
+    const newConfirmation: TaskConfirmation = {
+        staffName: staffName,
+        timestamp: new Date().toISOString()
+    };
+
+    const updatedTask = {
+        ...task,
+        confirmations: [...(task.confirmations || []), newConfirmation]
+    };
+
+    try {
+        await pmDailyDb.saveTask(updatedTask);
+        setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
+        toast.success("Task confirmed!");
+    } catch (error) {
+        toast.error("Failed to confirm task.");
+    }
+  };
 
   const handleSave = async () => {
     if (!formData.workContent) {
@@ -485,6 +636,7 @@ export default function PmDailyPlannerPage() {
     const task: DailyAssignment = {
       id: editingTask?.id || uuidv4(),
       date: formData.taskDate || selectedDateStr,
+      endDate: formData.taskEndDate || formData.taskDate || selectedDateStr,
       assignees: formData.assignees,
       workContent: formData.workContent,
       priority: formData.priority,
@@ -492,9 +644,13 @@ export default function PmDailyPlannerPage() {
       startTime: formData.startTime,
       stopTime: formData.stopTime,
       idMachine: formData.idMachine,
+      createdBy: editingTask ? editingTask.createdBy : user?.displayName,
+      createdById: editingTask ? editingTask.createdById : user?.id,
       workshop: formData.workshop,
       handoverShifts: formData.handoverShifts,
       handoverStaff: formData.handoverStaff,
+      handoverLogs: formData.handoverLogs,
+      confirmations: formData.confirmations,
       checklist: editingTask?.checklist || [],
       notes: editingTask?.notes || '',
       photos: editingTask?.photos || []
@@ -611,13 +767,29 @@ export default function PmDailyPlannerPage() {
     }
   };
 
-  const getPriorityBadge = (p: string) => {
+  const getPriorityBadge = (task: DailyAssignment) => {
+    const p = getEffectivePriority(task);
+    const isEscalated = p !== task.priority;
+    
+    let badge;
     switch (p) {
-      case 'P0 (Urgent)': return <Badge variant="destructive" className="bg-red-500">{p}</Badge>;
-      case 'P1 (High)': return <Badge className="bg-orange-500 text-white border-orange-600">{p}</Badge>;
-      case 'P2 (Normal)': return <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100">{p}</Badge>;
-      default: return <Badge variant="outline">{p}</Badge>;
+      case 'P0 (Urgent)': badge = <Badge variant="destructive" className="bg-red-500">{p}</Badge>; break;
+      case 'P1 (High)': badge = <Badge className="bg-orange-500 text-white border-orange-600">{p}</Badge>; break;
+      case 'P2 (Normal)': badge = <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100">{p}</Badge>; break;
+      default: badge = <Badge variant="outline">{p}</Badge>; break;
     }
+
+    if (isEscalated) {
+        return (
+            <div className="flex items-center gap-1">
+                {badge}
+                <Badge className="bg-red-100 text-red-700 border-red-200 text-[9px] h-4 px-1 flex items-center gap-0.5 animate-pulse">
+                    <AlertCircle className="h-2.5 w-2.5" /> Overdue
+                </Badge>
+            </div>
+        );
+    }
+    return badge;
   };
 
   const getStatusIcon = (s: string) => {
@@ -643,7 +815,7 @@ export default function PmDailyPlannerPage() {
     }
   };
 
-  const getTimeBadge = (start: string, stop: string) => {
+  const getTimeBadge = (start?: string, stop?: string) => {
     const s = start || '08:00';
     const e = stop || '16:00';
     const timeRange = `${s} - ${e}`;
@@ -735,7 +907,7 @@ export default function PmDailyPlannerPage() {
                     <History className="h-3 w-3" /> Done History
                 </Button>
             </div>
-            {isAdmin && (
+            {isPowerUser && (
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                     <Button variant="outline" onClick={() => setIsSyncDialogOpen(true)} className="w-full border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white sm:w-auto">
                         <RefreshCw className="mr-2 h-4 w-4" /> Sync
@@ -799,7 +971,7 @@ export default function PmDailyPlannerPage() {
                           <div className="flex flex-col items-center justify-center h-[300px] text-slate-400 space-y-4">
                              <ClipboardList className="h-12 w-12 opacity-20" />
                              <p className="text-sm">No tasks assigned to this date.</p>
-                             {isAdmin && <Button variant="outline" size="sm" onClick={handleOpenAdd}>Create first task</Button>}
+                             {isPowerUser && <Button variant="outline" size="sm" onClick={handleOpenAdd}>Create first task</Button>}
                           </div>
                         ) : (
                           <>
@@ -810,10 +982,16 @@ export default function PmDailyPlannerPage() {
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
                                       {task.idMachine && <Badge variant="secondary" className="bg-white/80 text-[10px] text-slate-700 shadow-sm">{task.idMachine}</Badge>}
-                                      {getPriorityBadge(task.priority)}
+                                      {getPriorityBadge(task)}
                                     </div>
                                     <p className="mt-2 text-base font-bold text-slate-900">{task.workContent}</p>
-                                    <p className="mt-1 text-xs text-slate-600 font-medium">Assignees: {task.assignees.length > 0 ? task.assignees.join(', ') : 'Unassigned'}</p>
+                                    <p className="mt-1 text-xs text-slate-600 font-medium">
+                                      Assignees: {task.assignees.length > 0 ? task.assignees.join(', ') : 'Unassigned'}
+                                      {task.createdBy && <p className="mt-0.5 text-[10px] text-slate-400">Created by: {task.createdBy}</p>}
+                                      {task.handoverStaff && task.handoverStaff.length > 0 && (
+                                        <span className="ml-2 text-emerald-600 font-bold">• Handover: {task.handoverStaff.join(', ')}</span>
+                                      )}
+                                    </p>
                                   </div>
                                   <div className="shrink-0">{getStatusIcon(task.status)}</div>
                                 </div>
@@ -823,16 +1001,29 @@ export default function PmDailyPlannerPage() {
                                   {getStatusBadge(task.status)}
                                 </div>
 
-                                {isAdmin && task.status !== 'Done' && (
+                                {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
                                   <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/60 pt-4">
-                                    <Button variant="outline" className="bg-white/80" onClick={() => handleOpenEdit(task)}>
-                                      <Edit className="mr-2 h-4 w-4" />
+                                    <Button variant="outline" className="bg-white/80 h-9 text-xs font-bold" onClick={() => handleOpenEdit(task)}>
+                                      <Edit className="mr-2 h-3.5 w-3.5" />
                                       Edit
                                     </Button>
-                                    <Button variant="outline" className="border-red-200 bg-white/80 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => setTaskPendingDelete(task)}>
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete
-                                    </Button>
+                                    
+                                         {user && (task.assignees.includes(user.displayName) || task.handoverStaff?.includes(user.displayName) || task.handoverLogs?.some(l => l.toStaff.includes(user.displayName))) && !task.confirmations?.some(c => c.staffName === user.displayName) && (
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                              onClick={() => handleConfirmTask(task)} disabled={isReadOnly}
+                                            >
+                                              <Check className="mr-1.5 h-3.5 w-3.5" /> Confirm
+                                            </Button>
+                                         )}
+{user?.role === 'ADMIN' && (
+                                      <Button variant="outline" className="border-red-200 bg-white/80 text-red-600 hover:bg-red-50 hover:text-red-700 h-9 text-xs font-bold" onClick={() => setTaskPendingDelete(task)}>
+                                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                        Delete
+                                      </Button>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -847,7 +1038,7 @@ export default function PmDailyPlannerPage() {
                                 <TableHead>Assignee</TableHead>
                                 <TableHead>Machine/Work</TableHead>
                                 <TableHead>Status</TableHead>
-                                {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                                {(isPowerUser || dailyTasks.some(t => canEditTask(t))) && <TableHead className="text-right">Actions</TableHead>}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -869,38 +1060,59 @@ export default function PmDailyPlannerPage() {
                                             <span className="text-[11px] font-medium text-slate-700">{name}</span>
                                           </div>
                                         ))
-                                      ) : (
+                                      ) : task.handoverStaff && task.handoverStaff.length > 0 ? null : (
                                         <span className="text-xs text-slate-400 italic">Unassigned</span>
                                       )}
+                                      {task.handoverStaff?.map((name, i) => (
+                                        <div key={`ho-${i}`} className="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
+                                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-500 font-bold text-[8px] text-white shadow-sm">
+                                            {name.charAt(0).toUpperCase()}
+                                          </div>
+                                          <span className="text-[11px] font-bold text-emerald-700">{name}</span>
+                                        </div>
+                                      ))}
                                     </div>
                                   </TableCell>
                                   <TableCell className="align-top">
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-2">
+                                     <div className="space-y-1">
+                                       <div className="flex items-center gap-2">
                                         {task.idMachine && <Badge variant="secondary" className="h-4 bg-white/80 px-1 text-[10px] text-slate-700 shadow-sm">{task.idMachine}</Badge>}
-                                        {getPriorityBadge(task.priority)}
+                                        {getPriorityBadge(task)}
                                       </div>
-                                      <p className="text-base font-bold text-slate-900 leading-snug">{task.workContent}</p>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="align-top">
+                                       <p className="text-base font-bold text-slate-900 leading-snug">{task.workContent}</p>
+                                       {task.createdBy && <p className="text-[10px] text-slate-400 mt-1 italic">Created by: {task.createdBy}</p>}
+                                     </div>
+                                   </TableCell>
+                                   <TableCell className="align-top">
                                      <div className="flex items-center gap-2 py-1">
                                         {getStatusBadge(task.status)}
                                      </div>
                                   </TableCell>
-                                  {isAdmin && task.status !== 'Done' && (
+                                  {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
                                     <TableCell className="text-right align-top">
                                       <div className="flex items-center justify-end gap-1">
+                                         {user && (task.assignees.includes(user.displayName) || task.handoverStaff?.includes(user.displayName) || task.handoverLogs?.some(l => l.toStaff.includes(user.displayName))) && !task.confirmations?.some(c => c.staffName === user.displayName) && (
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2"
+                                              onClick={() => handleConfirmTask(task)} disabled={isReadOnly}
+                                            >
+                                              <Check className="mr-1 h-3 w-3" /> Confirm
+                                            </Button>
+                                         )}
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-indigo-600" onClick={() => handleOpenEdit(task)}>
                                           <Edit className="h-4 w-4" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-red-500" onClick={() => setTaskPendingDelete(task)}>
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {user?.role === 'ADMIN' && (
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-red-500" onClick={() => setTaskPendingDelete(task)}>
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        )}
                                       </div>
                                     </TableCell>
                                   )}
-                                </TableRow>
+                                 </TableRow>
                               ))}
                             </TableBody>
                           </Table>
@@ -943,8 +1155,7 @@ export default function PmDailyPlannerPage() {
                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                            <div className="relative w-full sm:w-64">
                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                               <Input
-                                   placeholder="Search tasks, machines, staff..."
+                               <Input placeholder="Search tasks, machines, staff..."
                                    className="h-9 pl-9 bg-white/50 border-slate-200 text-xs"
                                    value={searchTerm}
                                    onChange={(e) => setSearchTerm(e.target.value)}
@@ -991,35 +1202,40 @@ export default function PmDailyPlannerPage() {
                                                   </div>
                                                   <div className="flex-1 min-w-0">
                                                       <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                                                          {getPriorityBadge(task.priority)}
+                                                          {getPriorityBadge(task)}
                                                           {getStatusBadge(task.status)}
                                                           {getTimeBadge(task.startTime, task.stopTime)}
                                                           {task.idMachine && <Badge variant="outline" className="text-[10px] h-4">{task.idMachine}</Badge>}
                                                       </div>
                                                       <p className="text-sm font-bold text-slate-900 leading-tight">{task.workContent}</p>
+                                                       {task.createdBy && <p className="text-[9px] text-slate-400 italic">Created by: {task.createdBy}</p>}
                                                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                                          <p className="text-[10px] text-slate-500 font-medium">Assignees:</p>
-                                                          {task.assignees.length > 0 ? (
-                                                              task.assignees.map((name, i) => (
-                                                                  <Badge key={i} variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-100 text-[10px] px-1.5 py-0">
-                                                                      {name}
-                                                                  </Badge>
-                                                              ))
-                                                          ) : (
+                                                          <p className="text-[10px] text-slate-500 font-medium">Staff:</p>
+                                                          {task.assignees.map((name, i) => (
+                                                              <Badge key={`as-${i}`} variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] px-1.5 py-0">
+                                                                  {name}
+                                                              </Badge>
+                                                          ))}
+                                                          {task.handoverStaff?.map((name, i) => (
+                                                              <Badge key={`ho-${i}`} variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px] px-1.5 py-0 font-bold">
+                                                                  {name}
+                                                              </Badge>
+                                                          ))}
+                                                          {task.assignees.length === 0 && (!task.handoverStaff || task.handoverStaff.length === 0) && (
                                                               <span className="text-[10px] text-slate-400 italic">Unassigned</span>
                                                           )}
                                                       </div>
                                                   </div>
-                                                   {isAdmin && task.status !== 'Done' && (
+                                                   {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
                                                        <Button 
                                                          variant="ghost" 
                                                          size="icon" 
-                                                         className="h-8 w-8 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                                                         className="h-9 w-9 shrink-0 bg-white/50 text-indigo-600 border border-white/20 shadow-sm opacity-100 transition-all sm:h-8 sm:w-8 sm:bg-transparent sm:border-0 sm:shadow-none sm:opacity-0 sm:group-hover:opacity-100"
                                                          onClick={() => handleOpenEdit(task)}
                                                        >
-                                                           <Edit className="h-3.5 w-3.5" />
+                                                           <Edit className="h-4 w-4" />
                                                       </Button>
-                                                  )}
+                                                   )}
                                               </div>
                                           ))}
                                       </div>
@@ -1075,7 +1291,7 @@ export default function PmDailyPlannerPage() {
           
           <ScrollArea className="flex-1 overflow-y-auto max-h-[calc(95vh-160px)]">
             <div className="px-6 py-6 pb-12 space-y-8">
-              {/* SECTION: Scheduling */}
+                            {/* SECTION: Scheduling */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-indigo-600">
                   <Clock className="h-4 w-4" />
@@ -1083,39 +1299,41 @@ export default function PmDailyPlannerPage() {
                   <div className="h-px flex-1 bg-indigo-50" />
                 </div>
                 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-500">Scheduled Date</Label>
-                    <Popover open={openDatePicker} onOpenChange={setOpenDatePicker}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal border-slate-200 h-10",
-                            !formData.taskDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4 text-indigo-500" />
-                          {formData.taskDate ? format(new Date(`${formData.taskDate}T00:00:00`), "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={formData.taskDate ? new Date(`${formData.taskDate}T00:00:00`) : undefined}
-                          onSelect={(d) => {
-                            if (d) {
-                              setFormData({ ...formData, taskDate: format(d, 'yyyy-MM-dd') });
-                              setOpenDatePicker(false);
-                            }
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-4">
+                  {/* Row 1: Start Date & Start Time */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-500">Start Date</Label>
+                      <Popover open={openDatePicker} onOpenChange={setOpenDatePicker}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            disabled={isReadOnly}
+                            className={cn(
+                              "w-full justify-start text-left font-normal border-slate-200 h-10",
+                              !formData.taskDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4 text-indigo-500" />
+                            {formData.taskDate ? format(new Date(`${formData.taskDate}T00:00:00`), "PPP") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={formData.taskDate ? new Date(`${formData.taskDate}T00:00:00`) : undefined}
+                            onSelect={(d) => {
+                              if (d) {
+                                setFormData({ ...formData, taskDate: format(d, 'yyyy-MM-dd') });
+                                setOpenDatePicker(false);
+                              }
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="startTime" className="text-xs font-semibold text-slate-500">Start Time</Label>
                       <Input
@@ -1123,17 +1341,54 @@ export default function PmDailyPlannerPage() {
                         type="time"
                         value={formData.startTime}
                         onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                        className="h-10 border-slate-200"
+                        className="h-10 border-slate-200" 
+                        disabled={isReadOnly} 
                       />
                     </div>
+                  </div>
+
+                  {/* Row 2: End Date & End Time */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="stopTime" className="text-xs font-semibold text-slate-500">End Time</Label>
+                      <Label className="text-xs font-semibold text-slate-500">Target End Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            disabled={isReadOnly}
+                            className={cn(
+                              "w-full justify-start text-left font-normal border-slate-200 h-10",
+                              !formData.taskEndDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4 text-fuchsia-500" />
+                            {formData.taskEndDate ? format(new Date(`${formData.taskEndDate}T00:00:00`), "PPP") : <span>Pick end date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={formData.taskEndDate ? new Date(`${formData.taskEndDate}T00:00:00`) : undefined}
+                            onSelect={(d) => {
+                              if (d) {
+                                setFormData({ ...formData, taskEndDate: format(d, 'yyyy-MM-dd') });
+                              }
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="stopTime" className="text-xs font-semibold text-slate-500">Target End Time</Label>
                       <Input
                         id="stopTime"
                         type="time"
                         value={formData.stopTime}
                         onChange={(e) => setFormData({ ...formData, stopTime: e.target.value })}
-                        className="h-10 border-slate-200"
+                        className="h-10 border-slate-200" 
+                        disabled={isReadOnly} 
                       />
                     </div>
                   </div>
@@ -1170,8 +1425,8 @@ export default function PmDailyPlannerPage() {
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold text-slate-500">Machine / Asset</Label>
                     {formData.workshop ? (
-                      <Select 
-                        value={formData.idMachine} 
+                      <Select disabled={isReadOnly}
+                      value={formData.idMachine} 
                         onValueChange={(v) => setFormData({ ...formData, idMachine: v })}
                       >
                         <SelectTrigger className="h-10 border-slate-200 bg-white">
@@ -1184,7 +1439,7 @@ export default function PmDailyPlannerPage() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <Input 
+                      <Input
                         placeholder="Manual entry..."
                         className="h-10 border-slate-200 bg-white"
                         value={formData.idMachine}
@@ -1208,8 +1463,7 @@ export default function PmDailyPlannerPage() {
                     <Label className="text-xs font-semibold text-slate-500">Main Assignee(s)</Label>
                     <Popover open={openAssignee} onOpenChange={setOpenAssignee}>
                       <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
+                          <Button variant="outline" disabled={isReadOnly}
                           role="combobox"
                           aria-expanded={openAssignee}
                           className="w-full justify-between font-normal border-slate-200 min-h-[44px] h-auto p-2 flex-wrap gap-1 bg-white"
@@ -1268,7 +1522,7 @@ export default function PmDailyPlannerPage() {
                       id="work"
                       value={formData.workContent}
                       onChange={(e) => setFormData({ ...formData, workContent: e.target.value })}
-                      className="min-h-[100px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                      className="min-h-[100px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all disabled:opacity-70" disabled={isReadOnly}
                       placeholder="Describe the maintenance task..."
                     />
                   </div>
@@ -1276,8 +1530,8 @@ export default function PmDailyPlannerPage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label className="text-xs font-semibold text-slate-500">Priority Level</Label>
-                      <Select 
-                        value={formData.priority} 
+                      <Select
+                      value={formData.priority} 
                         onValueChange={(v) => setFormData({ ...formData, priority: v as Priority })}
                       >
                         <SelectTrigger className="h-10 border-slate-200">
@@ -1295,132 +1549,161 @@ export default function PmDailyPlannerPage() {
                 </div>
               </div>
 
-              {/* SECTION: Handover & Tracking */}
-              <div className="space-y-4 bg-indigo-50/30 p-4 rounded-xl border border-indigo-100">
-                <div className="flex items-center gap-2 text-indigo-600">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider">Handover & Status</h4>
-                  <div className="h-px flex-1 bg-indigo-100" />
+              {/* SECTION: Handover Chain & History */}
+              <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-indigo-600">
+                    <History className="h-4 w-4" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider">Handover History & Confirmation</h4>
+                  </div>
+                  {(!editingTask || canEditTask(editingTask)) && !isHandoverMode && (
+                    <Button 
+                      type="button" 
+                      variant="outline" size="sm" onClick={() => setIsHandoverMode(true)} disabled={isReadOnly}
+                      className="h-7 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> New Handover
+                    </Button>
+                  )}
                 </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-3">
-                    <Label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                      Shift Handover <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
-                    </Label>
-                    <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded-lg border border-slate-200">
-                      {['C1', 'C2', 'C3', 'HC', 'C1/12', 'C2/12', 'C3/12', 'HC/12'].map(s => (
-                        <Badge
-                          key={s}
-                          variant={formData.handoverShifts.includes(s) ? "default" : "outline"}
-                          className={cn(
-                            "cursor-pointer transition-all px-2 py-0.5 text-[10px] font-medium h-6",
-                            formData.handoverShifts.includes(s) 
-                              ? "bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-200" 
-                              : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
-                          )}
-                          onClick={() => {
-                            const newShifts = formData.handoverShifts.includes(s)
-                              ? formData.handoverShifts.filter(x => x !== s)
-                              : [...formData.handoverShifts, s];
-                            setFormData({ ...formData, handoverShifts: newShifts });
-                          }}
-                        >
-                          {s}
-                        </Badge>
-                      ))}
+                {/* Handover Timeline */}
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {formData.handoverLogs.length === 0 && !isHandoverMode && (
+                    <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg">
+                      <p className="text-xs text-slate-400 italic">No handover logs recorded yet.</p>
                     </div>
+                  )}
 
-                    {formData.handoverShifts.length > 0 && (
-                      <Popover>
-                        <PopoverTrigger asChild>
+                  {formData.handoverLogs.map((log, idx) => (
+                    <div key={idx} className="relative pl-4 border-l-2 border-indigo-100 pb-2 last:pb-0">
+                      <div className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-white border-2 border-indigo-500 flex items-center justify-center">
+                         <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                      </div>
+                      <div className="bg-white rounded-lg border border-slate-200 p-2 shadow-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-indigo-600">{log.fromStaff} → {log.toStaff.join(', ')}</span>
+                          <span className="text-[9px] text-slate-400">{format(new Date(log.timestamp), 'MMM dd, HH:mm')}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-wrap">{log.note}</p>
+                        {log.shifts.length > 0 && (
+                          <div className="flex gap-1 mt-1">
+                            {log.shifts.map(s => <Badge key={s} variant="outline" className="text-[8px] h-3 px-1">{s}</Badge>)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add New Handover Form */}
+                  {isHandoverMode && (
+                    <div className="bg-indigo-50/50 rounded-xl border border-indigo-200 p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-indigo-700">Handover To</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
                           <Button
                             variant="outline"
-                            className="w-full justify-between h-10 border-slate-200 bg-white text-sm"
-                          >
-                            <span className="truncate">
-                              {formData.handoverStaff.length > 0
-                                ? `${formData.handoverStaff.length} staff selected for handover`
-                                : "Select handover staff..."}
-                            </span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0" align="start">
-                          <Command className="max-h-[300px]">
-                            <CommandInput placeholder="Search staff..." />
-                            <CommandList>
-                              <CommandEmpty>No staff found in selected shifts.</CommandEmpty>
-                              <CommandGroup>
-                                {workingHours?.filter(item => {
-                                  const dateKey = getWorkingHoursDateKey(date || new Date());
-                                  const shift = String(item.days[dateKey] || '').toUpperCase();
-                                  return formData.handoverShifts.some(s => shift.includes(s));
-                                }).map((u) => (
-                                  <CommandItem
-                                    key={u.id}
-                                    value={u.fullName}
-                                    onSelect={() => {
-                                      const exists = formData.handoverStaff.includes(u.fullName);
-                                      setFormData({
-                                        ...formData,
-                                        handoverStaff: exists 
-                                          ? formData.handoverStaff.filter(name => name !== u.fullName)
-                                          : [...formData.handoverStaff, u.fullName]
-                                      });
-                                    }}
-                                  >
-                                    <Check className={cn("mr-2 h-4 w-4 text-emerald-600", formData.handoverStaff.includes(u.fullName) ? "opacity-100" : "opacity-0")} />
-                                    <div className="flex flex-col">
-                                      <span className="text-sm font-medium">{u.fullName}</span>
-                                      <span className="text-[10px] text-slate-400">Shift: {String(workingHours.find(x => x.id === u.id)?.days[getWorkingHoursDateKey(date || new Date())] || '')}</span>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                    
-                    {formData.handoverStaff.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {formData.handoverStaff.map(name => (
-                          <Badge key={name} variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px] px-2 py-0">
-                            {name}
-                          </Badge>
-                        ))}
+                            disabled={isReadOnly} className="w-full justify-between h-9 bg-white text-xs">
+                               <span className="truncate">
+                                {tempHandoverStaff.length > 0 ? tempHandoverStaff.join(', ') : "Select staff..."}
+                               </span>
+                               <ChevronsUpDown className="h-3 w-3 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[280px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search staff..." />
+                              <CommandList>
+                                <CommandGroup>
+                                  {filteredHandoverUsers.map(u => (
+                                    <CommandItem key={u.id} onSelect={() => {
+                                      const exists = tempHandoverStaff.includes(u.displayName);
+                                      setTempHandoverStaff(exists ? tempHandoverStaff.filter(n => n !== u.displayName) : [...tempHandoverStaff, u.displayName]);
+                                    }}>
+                                      <Check className={cn("mr-2 h-3 w-3", tempHandoverStaff.includes(u.displayName) ? "opacity-100" : "opacity-0")} />
+                                      {u.displayName}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-500">Current Progress / Status</Label>
-                    <Select 
-                      value={formData.status} 
-                      onValueChange={(v) => setFormData({ ...formData, status: v as Status })}
-                      disabled={!!editingTask && !(() => {
-                        if (!user) return false;
-                        if (user.role === 'ADMIN' || user.role === 'POWER_USER') return true;
-                        if (editingTask.assignees.includes(user.displayName)) return true;
-                        if (editingTask.handoverStaff?.includes(user.displayName)) return true;
-                        return false;
-                      })()}
-                    >
-                      <SelectTrigger className="h-10 border-slate-200 bg-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Planned">⚪ Planned</SelectItem>
-                        <SelectItem value="Progress 25%">🟡 Progress 25%</SelectItem>
-                        <SelectItem value="Progress 50%">🟠 Progress 50%</SelectItem>
-                        <SelectItem value="Progress 75%">🔵 Progress 75%</SelectItem>
-                        <SelectItem value="Done">🟢 Done</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-indigo-700">Shifts</Label>
+                        <div className="flex flex-wrap gap-1">
+                          {Object.keys(SHIFT_MAP).map(s => (
+                            <Badge 
+                              key={s} 
+                              variant={tempHandoverShifts.includes(s) ? "default" : "outline"}
+                              className="cursor-pointer text-[10px] h-6"
+                              onClick={() => {
+                                const exists = tempHandoverShifts.includes(s);
+                                setTempHandoverShifts(exists ? tempHandoverShifts.filter(x => x !== s) : [...tempHandoverShifts, s]);
+                              }}
+                            >
+                              {s}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-indigo-700">Handover Notes</Label>
+                        <textarea 
+                          className="w-full rounded-lg border border-slate-200 p-2 text-xs min-h-[60px] outline-none focus:ring-1 focus:ring-indigo-500"
+                          placeholder="What should the next shift know?..."
+                          value={tempHandoverNote}
+                          onChange={e => setTempHandoverNote(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" className="flex-1 text-[10px] h-8" onClick={() => setIsHandoverMode(false)}>Cancel</Button>
+                        <Button variant="default" size="sm" className="flex-1 text-[10px] h-8 bg-indigo-600" onClick={handleAddHandoverLog}>Add Log</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Task Confirmations Section */}
+                <div className="pt-2 border-t border-slate-200">
+                   <div className="flex items-center gap-2 mb-2 text-emerald-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider">Acknowledge / Confirmations</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {formData.confirmations.map((c, i) => (
+                      <Badge key={i} className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[9px] py-0.5">
+                        <Check className="mr-1 h-2.5 w-2.5" /> {c.staffName} ({format(new Date(c.timestamp), 'HH:mm')})
+                      </Badge>
+                    ))}
+                    {formData.confirmations.length === 0 && <span className="text-[10px] text-slate-400 italic">No confirmations yet.</span>}
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-2 pt-4">
+                <Label className="text-xs font-semibold text-slate-500">Current Progress / Status</Label>
+                <Select 
+                      value={formData.status} 
+                  onValueChange={(v) => setFormData({ ...formData, status: v as Status })}
+                  disabled={isReadOnly}
+                >
+                  <SelectTrigger className="h-10 border-slate-200 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Planned">⚪ Planned</SelectItem>
+                    <SelectItem value="Progress 25%">🟡 Progress 25%</SelectItem>
+                    <SelectItem value="Progress 50%">🟠 Progress 50%</SelectItem>
+                    <SelectItem value="Progress 75%">🔵 Progress 75%</SelectItem>
+                    <SelectItem value="Done">🟢 Done</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </ScrollArea>
@@ -1434,10 +1717,10 @@ export default function PmDailyPlannerPage() {
               Cancel
             </Button>
             <Button 
-              onClick={handleSave} 
+              onClick={isReadOnly ? () => setIsDialogOpen(false) : handleSave} 
               className="flex-1 sm:flex-none bg-linear-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white shadow-md shadow-indigo-200 transition-all active:scale-95 h-10 font-bold"
             >
-              {editingTask ? 'Save Changes' : 'Confirm & Save'}
+              {isReadOnly ? 'Close' : (editingTask ? 'Save Changes' : 'Confirm & Save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1471,7 +1754,7 @@ export default function PmDailyPlannerPage() {
 
             <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
               <Label className="sm:text-right">Mode</Label>
-              <Select value={syncMode} onValueChange={(value: SyncMode) => setSyncMode(value)}>
+              <Select disabled={isReadOnly} value={syncMode} onValueChange={(value: SyncMode) => setSyncMode(value)}>
                 <SelectTrigger className="sm:col-span-3">
                   <SelectValue />
                 </SelectTrigger>

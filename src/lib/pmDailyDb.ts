@@ -22,6 +22,7 @@ function toPayload(task: DailyAssignment) {
     work_content: task.workContent,
     assignee: task.assignees.join(', '),
     date: task.date,
+    end_date: task.endDate,
     start_time: task.startTime,
     stop_time: task.stopTime,
     priority: task.priority,
@@ -31,7 +32,11 @@ function toPayload(task: DailyAssignment) {
     photos: task.photos,
     workshop: task.workshop,
     handover_shifts: task.handoverShifts?.join(', '),
-    handover_staff: task.handoverStaff?.join(', ')
+    handover_staff: task.handoverStaff?.join(', '),
+    created_by: task.createdBy,
+    created_by_id: task.createdById,
+    handover_logs: task.handoverLogs || [],
+    confirmations: task.confirmations || []
   };
 }
 
@@ -67,6 +72,7 @@ export const pmDailyDb = {
       equipmentName: '', 
       workContent: t.work_content,
       date: t.date,
+      endDate: t.end_date,
       startTime: t.start_time,
       stopTime: t.stop_time,
       assignees: t.assignee ? String(t.assignee).split(',').map((s: string) => s.trim()) : [],
@@ -77,7 +83,11 @@ export const pmDailyDb = {
       photos: t.photos || [],
       workshop: t.workshop || '',
       handoverShifts: t.handover_shifts ? String(t.handover_shifts).split(',').map((s: string) => s.trim()) : [],
-      handoverStaff: t.handover_staff ? String(t.handover_staff).split(',').map((s: string) => s.trim()) : []
+      handoverStaff: t.handover_staff ? String(t.handover_staff).split(',').map((s: string) => s.trim()) : [],
+      createdBy: t.created_by,
+      createdById: t.created_by_id,
+      handoverLogs: t.handover_logs || [],
+      confirmations: t.confirmations || []
     }));
 
     writeClientCache(cacheKey, tasks);
