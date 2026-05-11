@@ -22,6 +22,7 @@ function toPayload(task: DailyAssignment) {
     work_content: task.workContent,
     assignee: task.assignees.join(', '),
     date: task.date,
+    end_date: task.endDate,
     start_time: task.startTime,
     stop_time: task.stopTime,
     priority: task.priority,
@@ -71,7 +72,7 @@ export const pmDailyDb = {
       equipmentName: '', 
       workContent: t.work_content,
       date: t.date,
-      endDate: t.date, // Use date as fallback for missing end_date column
+      endDate: t.end_date || t.date, // Use date as fallback if end_date is null
       startTime: t.start_time,
       stopTime: t.stop_time,
       assignees: t.assignee ? String(t.assignee).split(',').map((s: string) => s.trim()) : [],

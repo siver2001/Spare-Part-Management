@@ -349,7 +349,10 @@ export default function PmDailyPlannerPage() {
 
   const dailyTasks = useMemo(() => {
     if (!mounted) return [];
-    let filtered = tasks.filter(t => t.date === selectedDateStr);
+    let filtered = tasks.filter(t => {
+      const compareDate = (plannerMode === 'history' && t.status === 'Done') ? (t.endDate || t.date) : t.date;
+      return compareDate === selectedDateStr;
+    });
     
     if (plannerMode === 'active') {
         filtered = filtered.filter(t => t.status !== 'Done');
@@ -415,11 +418,12 @@ export default function PmDailyPlannerPage() {
   const tasksByDate = useMemo(() => {
     const grouped: Record<string, DailyAssignment[]> = {};
     paginatedTasks.forEach(t => {
-        if (!grouped[t.date]) grouped[t.date] = [];
-        grouped[t.date].push(t);
+      const displayDate = (plannerMode === 'history' && t.status === 'Done') ? (t.endDate || t.date) : t.date;
+      if (!grouped[displayDate]) grouped[displayDate] = [];
+      grouped[displayDate].push(t);
     });
     return grouped;
-  }, [paginatedTasks]);
+  }, [paginatedTasks, plannerMode]);
 
   const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
 
@@ -636,7 +640,9 @@ export default function PmDailyPlannerPage() {
     const task: DailyAssignment = {
       id: editingTask?.id || uuidv4(),
       date: formData.taskDate || selectedDateStr,
-      endDate: formData.taskEndDate || formData.taskDate || selectedDateStr,
+      endDate: formData.status === 'Done' 
+        ? format(new Date(), 'yyyy-MM-dd') 
+        : (formData.taskEndDate || formData.taskDate || selectedDateStr),
       assignees: formData.assignees,
       workContent: formData.workContent,
       priority: formData.priority,
