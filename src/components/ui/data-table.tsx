@@ -57,6 +57,14 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: (row, columnId, filterValue) => {
+        const searchTerm = String(filterValue).toLowerCase();
+        return row.getAllCells().some(cell => {
+            const val = cell.getValue();
+            if (val === null || val === undefined) return false;
+            return String(val).toLowerCase().includes(searchTerm);
+        });
+    },
     state: {
       globalFilter,
     },

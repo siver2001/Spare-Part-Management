@@ -76,7 +76,7 @@ export function InventoryPageView({
             <DataTable
               columns={columns}
               data={data}
-              searchKey="part name"
+              searchKey="No, part name, bin..."
               onFilteredDataChange={onFilteredDataChange}
               mobileCardRender={mobileCardRender}
             />
