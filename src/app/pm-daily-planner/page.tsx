@@ -130,18 +130,23 @@ const isTaskInShift = (taskStart: string, taskStop: string, shiftCode: string) =
     if (!shift) return false;
     
     const ts = timeToMinutes(taskStart);
-    const te = timeToMinutes(taskStop);
-    const ss = timeToMinutes(shift.start);
-    const se = timeToMinutes(shift.stop);
+    let te = timeToMinutes(taskStop);
+    if (te <= ts) te += 1440; // Overnight task
     
-    if (se > ss) {
-        return ts >= ss && te <= se;
-    } else {
-        // Overnight
-        const isTsValid = ts >= ss || ts <= se;
-        const isTeValid = te >= ss || te <= se;
-        return isTsValid && isTeValid;
-    }
+    const ss = timeToMinutes(shift.start);
+    let se = timeToMinutes(shift.stop);
+    if (se <= ss) se += 1440; // Overnight shift
+    
+    const checkOverlap = (s1: number, e1: number, s2: number, e2: number) => {
+        return Math.max(s1, s2) < Math.min(e1, e2);
+    };
+
+    // Check overlap across possible day boundaries to handle overnight shifts/tasks correctly
+    return (
+        checkOverlap(ts, te, ss, se) ||
+        checkOverlap(ts, te, ss - 1440, se - 1440) ||
+        checkOverlap(ts, te, ss + 1440, se + 1440)
+    );
 };
 
 function getWeekDatesForIsoWeek(year: number, week: number): Date[] {
@@ -487,9 +492,22 @@ export default function PmDailyPlannerPage() {
   // Only allow assignees that exist in working-hours and are on shift for the chosen date/time.
   const filteredUsersByShift = useMemo(() => {
     if (!formData.startTime || !formData.stopTime) return users;
-    if (!assignmentDate) return [];
+    if (!formData.taskDate) return [];
 
-    const dateLabel = getWorkingHoursDateKey(assignmentDate);
+    const startDate = new Date(`${formData.taskDate}T00:00:00`);
+    const endDate = new Date(`${formData.taskEndDate || formData.taskDate}T00:00:00`);
+    
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return [];
+
+    // Get all date keys in range (limit to 7 days for safety)
+    const dateKeys: string[] = [];
+    const curr = new Date(startDate);
+    let limit = 0;
+    while (curr <= endDate && limit < 7) {
+      dateKeys.push(getWorkingHoursDateKey(curr));
+      curr.setDate(curr.getDate() + 1);
+      limit++;
+    }
 
     const userByMsnv = new Map(
       users.map((item) => [normalizeIdentity(item.username), item] as const)
@@ -500,17 +518,15 @@ export default function PmDailyPlannerPage() {
 
     const matchedUsers = workingHours
       .filter((wh) => {
-        const shiftOnDate = wh.days[dateLabel];
-        if (!shiftOnDate) return false;
-
-        return isTaskInShift(formData.startTime, formData.stopTime, String(shiftOnDate));
+        return dateKeys.some(dateLabel => {
+          const shiftOnDate = wh.days[dateLabel];
+          if (!shiftOnDate) return false;
+          return isTaskInShift(formData.startTime, formData.stopTime, String(shiftOnDate));
+        });
       })
       .map((wh) => {
         const msnvMatch = userByMsnv.get(normalizeIdentity(wh.msnv));
-        if (msnvMatch) {
-          return msnvMatch;
-        }
-
+        if (msnvMatch) return msnvMatch;
         return userByDisplayName.get(normalizeIdentity(wh.fullName)) || null;
       })
       .filter((item): item is User => Boolean(item));
@@ -518,7 +534,8 @@ export default function PmDailyPlannerPage() {
     return Array.from(new Map(matchedUsers.map((item) => [item.id, item])).values()).sort((a, b) =>
       a.displayName.localeCompare(b.displayName)
     );
-  }, [users, workingHours, assignmentDate, formData.startTime, formData.stopTime]);
+  }, [users, workingHours, formData.taskDate, formData.taskEndDate, formData.startTime, formData.stopTime]);
+
   const filteredHandoverUsers = useMemo(() => {
     if (tempHandoverShifts.length === 0) return users;
     if (!assignmentDate) return [];
@@ -531,7 +548,6 @@ export default function PmDailyPlannerPage() {
       .filter((wh) => {
         const shiftOnDate = String(wh.days[dateLabel] || '').toUpperCase().trim();
         if (!shiftOnDate) return false;
-        // Check if any of the selected handover shifts match the user's shift on that day
         return tempHandoverShifts.some(s => shiftOnDate.includes(s));
       })
       .map((wh) => {
@@ -546,23 +562,6 @@ export default function PmDailyPlannerPage() {
     );
   }, [users, workingHours, assignmentDate, tempHandoverShifts]);
 
-
-  useEffect(() => {
-    if (formData.assignees.length === 0) {
-      return;
-    }
-
-    const validAssignees = formData.assignees.filter((name) =>
-      filteredUsersByShift.some((u) => u.displayName === name)
-    );
-
-    if (validAssignees.length !== formData.assignees.length) {
-      setFormData((current) => ({
-        ...current,
-        assignees: validAssignees,
-      }));
-    }
-  }, [filteredUsersByShift, formData.assignees]);
 
   
   const handleAddHandoverLog = () => {
@@ -632,8 +631,10 @@ export default function PmDailyPlannerPage() {
       );
 
       if (!allAllowed) {
-        toast.error("Some assignees are not scheduled or don't match the selected time range.");
-        return;
+        console.log("Some assignees are not scheduled for this shift."); // toast.error replaced
+
+        // return;
+
       }
     }
 
@@ -1512,32 +1513,57 @@ export default function PmDailyPlannerPage() {
                           <CommandInput placeholder="Search staff..." />
                           <CommandList>
                             <CommandEmpty>No staff available.</CommandEmpty>
-                            <CommandGroup heading="Staff Matching Shift">
-                              {filteredUsersByShift.map((u) => (
-                                <CommandItem
-                                  key={u.id}
-                                  value={u.displayName}
-                                  onSelect={() => {
-                                    const alreadySelected = formData.assignees.includes(u.displayName);
-                                    setFormData({
-                                      ...formData,
-                                      assignees: alreadySelected
-                                        ? formData.assignees.filter((name) => name !== u.displayName)
-                                        : [...formData.assignees, u.displayName]
-                                    });
-                                  }}
-                                >
-                                  <Check className={cn("mr-2 h-4 w-4 text-indigo-600", formData.assignees.includes(u.displayName) ? "opacity-100" : "opacity-0")} />
-                                  {u.displayName}
-                                </CommandItem>
-                              ))}
+                            {filteredUsersByShift.length > 0 && (
+                              <CommandGroup heading="Recommended (On Shift)">
+                                {filteredUsersByShift.map((u) => (
+                                  <CommandItem
+                                    key={u.id}
+                                    value={u.displayName}
+                                    onSelect={() => {
+                                      const alreadySelected = formData.assignees.includes(u.displayName);
+                                      setFormData({
+                                        ...formData,
+                                        assignees: alreadySelected
+                                          ? formData.assignees.filter((name) => name !== u.displayName)
+                                          : [...formData.assignees, u.displayName]
+                                      });
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4 text-indigo-600", formData.assignees.includes(u.displayName) ? "opacity-100" : "opacity-0")} />
+                                    {u.displayName}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                            
+                            <CommandGroup heading="All Staff">
+                              {users
+                                .filter(u => !filteredUsersByShift.some(fu => fu.id === u.id))
+                                .map((u) => (
+                                  <CommandItem
+                                    key={u.id}
+                                    value={u.displayName}
+                                    onSelect={() => {
+                                      const alreadySelected = formData.assignees.includes(u.displayName);
+                                      setFormData({
+                                        ...formData,
+                                        assignees: alreadySelected
+                                          ? formData.assignees.filter((name) => name !== u.displayName)
+                                          : [...formData.assignees, u.displayName]
+                                      });
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4 text-indigo-600", formData.assignees.includes(u.displayName) ? "opacity-100" : "opacity-0")} />
+                                    {u.displayName}
+                                  </CommandItem>
+                                ))}
                             </CommandGroup>
                           </CommandList>
                         </Command>
                       </PopoverContent>
                     </Popover>
                     <p className="text-[10px] font-medium text-slate-400 italic">
-                      {filteredUsersByShift.length} staff members match this time range.
+
                     </p>
                   </div>
 
