@@ -1011,13 +1011,24 @@ export default function PmDailyPlannerPage() {
                                       {getPriorityBadge(task)}
                                     </div>
                                     <p className="mt-2 text-base font-bold text-slate-900">{task.workContent}</p>
-                                    <p className="mt-1 text-xs text-slate-600 font-medium">
-                                      Assignees: {task.assignees.length > 0 ? task.assignees.join(', ') : 'Unassigned'}
+                                     <div className="mt-1 text-xs text-slate-600 font-medium">Assignees: {task.assignees.length > 0 ? task.assignees.join(", ") : "Unassigned"}
                                       {task.createdBy && <p className="mt-0.5 text-[10px] text-slate-400">Created by: {task.createdBy}</p>}
-                                      {task.handoverStaff && task.handoverStaff.length > 0 && (
-                                        <span className="ml-2 text-emerald-600 font-bold">• Handover: {task.handoverStaff.join(', ')}</span>
+                                      
+                                      {/* Handover Waves Display (Mobile/Compact) */}
+                                      {task.handoverLogs && task.handoverLogs.length > 0 && (
+                                        <div className="mt-2 space-y-1">
+                                          {task.handoverLogs.map((log, idx) => (
+                                            <div key={idx} className="flex items-center gap-1.5 text-[10px]">
+                                              <span className="text-emerald-600 font-bold">HO #{idx + 1}:</span>
+                                              <span className="text-slate-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                                                {log.toStaff.join(', ')}
+                                              </span>
+                                              {log.timestamp && <span className="text-slate-400 font-normal italic">({format(new Date(log.timestamp), 'HH:mm')})</span>}
+                                            </div>
+                                          ))}
+                                        </div>
                                       )}
-                                    </p>
+                                     </div>
                                   </div>
                                   <div className="shrink-0">{getStatusIcon(task.status)}</div>
                                 </div>
@@ -1089,7 +1100,22 @@ export default function PmDailyPlannerPage() {
                                       ) : task.handoverStaff && task.handoverStaff.length > 0 ? null : (
                                         <span className="text-xs text-slate-400 italic">Unassigned</span>
                                       )}
-                                      {task.handoverStaff?.map((name, i) => (
+                                      {/* Table View Handover Waves */}
+                                      {task.handoverLogs && task.handoverLogs.length > 0 ? (
+                                        <div className="flex flex-col gap-1.5">
+                                          {task.handoverLogs.map((log, idx) => (
+                                            <div key={idx} className="flex flex-wrap items-center gap-1.5 p-1 rounded-md bg-emerald-50/50 border border-emerald-50">
+                                              <span className="text-[9px] font-black text-emerald-600 uppercase">HO {idx+1}</span>
+                                              {log.toStaff.map((name, i) => (
+                                                <div key={i} className="flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-emerald-100 shadow-xs">
+                                                  <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                                                  <span className="text-[10px] font-bold text-emerald-800">{name}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : task.handoverStaff?.map((name, i) => (
                                         <div key={`ho-${i}`} className="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
                                           <div className="flex h-5 w-5 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-500 font-bold text-[8px] text-white shadow-sm">
                                             {name.charAt(0).toUpperCase()}
@@ -1560,7 +1586,7 @@ export default function PmDailyPlannerPage() {
                                       const alreadySelected = formData.assignees.includes(u.displayName);
                                       setFormData({
                                         ...formData,
-                                        assignees: alreadySelected
+                                       assignees: alreadySelected
                                           ? formData.assignees.filter((name) => name !== u.displayName)
                                           : [...formData.assignees, u.displayName]
                                       });
@@ -1584,7 +1610,7 @@ export default function PmDailyPlannerPage() {
                                       const alreadySelected = formData.assignees.includes(u.displayName);
                                       setFormData({
                                         ...formData,
-                                        assignees: alreadySelected
+                                       assignees: alreadySelected
                                           ? formData.assignees.filter((name) => name !== u.displayName)
                                           : [...formData.assignees, u.displayName]
                                       });
