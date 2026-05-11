@@ -1114,30 +1114,49 @@ export default function PmDailyPlannerPage() {
                                         {getStatusBadge(task.status)}
                                      </div>
                                   </TableCell>
-                                  {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
                                     <TableCell className="text-right align-top">
-                                      <div className="flex items-center justify-end gap-1">
-                                         {user && (task.assignees.includes(user.displayName) || task.handoverStaff?.includes(user.displayName) || task.handoverLogs?.some(l => l.toStaff.includes(user.displayName))) && !task.confirmations?.some(c => c.staffName === user.displayName) && (
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm" 
-                                              className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2"
-                                              onClick={() => handleConfirmTask(task)} disabled={isReadOnly}
-                                            >
-                                              <Check className="mr-1 h-3 w-3" /> Confirm
-                                            </Button>
-                                         )}
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-indigo-600" onClick={() => handleOpenEdit(task)}>
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                        {user?.role === 'ADMIN' && (
-                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-red-500" onClick={() => setTaskPendingDelete(task)}>
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                        )}
+                                      <div className="flex flex-col items-end gap-2">
+                                         {/* Confirmation Row */}
+                                         <div className="flex flex-wrap justify-end gap-1 mb-1 max-w-[200px]">
+                                           {task.confirmations?.map((c, i) => (
+                                              <Badge key={i} className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[9px] py-0">
+                                                <Check className="mr-1 h-2.5 w-2.5" /> {c.staffName}
+                                              </Badge>
+                                           ))}
+                                         </div>
+
+                                         <div className="flex items-center justify-end gap-1">
+                                            {/* CONFIRM BUTTON with robust name matching */}
+                                            {user && (
+                                              task.assignees.some(a => a.trim().toLowerCase() === user.displayName?.trim().toLowerCase()) || 
+                                              task.handoverStaff?.some(s => s.trim().toLowerCase() === user.displayName?.trim().toLowerCase()) ||
+                                              task.handoverLogs?.some(l => l.toStaff.some(ts => ts.trim().toLowerCase() === user.displayName?.trim().toLowerCase()))
+                                            ) && !task.confirmations?.some(c => c.staffName.trim().toLowerCase() === user.displayName?.trim().toLowerCase()) && (
+                                               <Button 
+                                                 variant="default" 
+                                                 size="sm" 
+                                                 className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm px-3 font-bold"
+                                                 onClick={() => handleConfirmTask(task)} disabled={isReadOnly}
+                                               >
+                                                 <Check className="mr-1 h-3 w-3" /> Confirm
+                                               </Button>
+                                            )}
+
+                                            {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
+                                              <>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-indigo-600" onClick={() => handleOpenEdit(task)}>
+                                                  <Edit className="h-4 w-4" />
+                                                </Button>
+                                                {user?.role === 'ADMIN' && (
+                                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-red-500" onClick={() => setTaskPendingDelete(task)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                  </Button>
+                                                )}
+                                              </>
+                                            )}
+                                         </div>
                                       </div>
                                     </TableCell>
-                                  )}
                                  </TableRow>
                               ))}
                             </TableBody>
@@ -1252,16 +1271,34 @@ export default function PmDailyPlannerPage() {
                                                           )}
                                                       </div>
                                                   </div>
-                                                   {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
-                                                       <Button 
-                                                         variant="ghost" 
-                                                         size="icon" 
-                                                         className="h-9 w-9 shrink-0 bg-white/50 text-indigo-600 border border-white/20 shadow-sm opacity-100 transition-all sm:h-8 sm:w-8 sm:bg-transparent sm:border-0 sm:shadow-none sm:opacity-0 sm:group-hover:opacity-100"
-                                                         onClick={() => handleOpenEdit(task)}
-                                                       >
-                                                           <Edit className="h-4 w-4" />
-                                                      </Button>
-                                                   )}
+                                                  
+                                                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                                                        {user && (
+                                                          task.assignees.some(a => a.trim().toLowerCase() === user.displayName?.trim().toLowerCase()) || 
+                                                          task.handoverStaff?.some(s => s.trim().toLowerCase() === user.displayName?.trim().toLowerCase()) ||
+                                                          task.handoverLogs?.some(l => l.toStaff.some(ts => ts.trim().toLowerCase() === user.displayName?.trim().toLowerCase()))
+                                                        ) && !task.confirmations?.some(c => c.staffName.trim().toLowerCase() === user.displayName?.trim().toLowerCase()) && (
+                                                           <Button 
+                                                             variant="default" 
+                                                             size="sm" 
+                                                             className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold px-2.5"
+                                                             onClick={() => handleConfirmTask(task)}
+                                                           >
+                                                               <Check className="h-3.5 w-3.5 mr-1" /> Confirm
+                                                           </Button>
+                                                        )}
+
+                                                        {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
+                                                           <Button 
+                                                             variant="ghost" 
+                                                             size="icon" 
+                                                             className="h-9 w-9 shrink-0 bg-white/50 text-indigo-600 border border-white/20 shadow-sm opacity-100 transition-all sm:h-8 sm:w-8 sm:bg-transparent sm:border-0 sm:shadow-none sm:opacity-0 sm:group-hover:opacity-100"
+                                                             onClick={() => handleOpenEdit(task)}
+                                                           >
+                                                               <Edit className="h-4 w-4" />
+                                                          </Button>
+                                                        )}
+                                                    </div>
                                               </div>
                                           ))}
                                       </div>
