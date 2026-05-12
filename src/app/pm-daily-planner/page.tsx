@@ -312,6 +312,19 @@ export default function PmDailyPlannerPage() {
     return !!(isAssignee || isHandover);
   }, [user]);
 
+  const canDeleteTask = useCallback((task: DailyAssignment) => {
+    if (!user) return false;
+    if (isSuperAdmin) return true;
+    if (user.role !== 'POWER_USER') return false;
+    
+    const normalize = (n: string | null | undefined) => String(n || '').trim().toLowerCase();
+    const currentName = normalize(user.displayName);
+    const currentUserId = user.id;
+    
+    return task.createdById === currentUserId || (task.createdBy && normalize(task.createdBy) === currentName);
+  }, [user, isSuperAdmin]);
+
+
 
 
   const isReadOnly = useMemo(() => {
@@ -1003,7 +1016,10 @@ export default function PmDailyPlannerPage() {
                           <>
                           <div className="space-y-3 p-4 md:hidden">
                             {dailyTasks.map((task) => (
-                              <div key={task.id} className={`rounded-2xl border border-transparent bg-linear-to-r p-4 ${getStatusTone(task.status)} shadow-sm`}>
+                              <div key={task.id} 
+                                className={`rounded-2xl border border-transparent bg-linear-to-r p-4 ${getStatusTone(task.status)} shadow-sm cursor-pointer hover:shadow-md transition-all`}
+                                onClick={() => handleOpenEdit(task)}
+                              >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -1040,7 +1056,12 @@ export default function PmDailyPlannerPage() {
 
                                 {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
                                   <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/60 pt-4">
-                                    <Button variant="outline" className="bg-white/80 h-9 text-xs font-bold" onClick={() => handleOpenEdit(task)}>
+                                    <Button variant="outline" className="bg-white/80 h-9 text-xs font-bold" 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEdit(task);
+                                      }}
+                                    >
                                       <Edit className="mr-2 h-3.5 w-3.5" />
                                       Edit
                                     </Button>
@@ -1050,13 +1071,21 @@ export default function PmDailyPlannerPage() {
                                               variant="outline" 
                                               size="sm" 
                                               className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                              onClick={() => handleConfirmTask(task)} disabled={isReadOnly}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleConfirmTask(task);
+                                              }} disabled={isReadOnly}
                                             >
-                                              <Check className="mr-1.5 h-3.5 w-3.5" /> Confirm
+                                              <Check className="mr-1.5 h-3.5 w-3.5" /> Nhận Việc
                                             </Button>
                                          )}
-{user?.role === 'ADMIN' && (
-                                      <Button variant="outline" className="border-red-200 bg-white/80 text-red-600 hover:bg-red-50 hover:text-red-700 h-9 text-xs font-bold" onClick={() => setTaskPendingDelete(task)}>
+                                          {canDeleteTask(task) && (
+                                      <Button variant="outline" className="border-red-200 bg-white/80 text-red-600 hover:bg-red-50 hover:text-red-700 h-9 text-xs font-bold" 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setTaskPendingDelete(task);
+                                        }}
+                                      >
                                         <Trash2 className="mr-2 h-3.5 w-3.5" />
                                         Delete
                                       </Button>
@@ -1080,7 +1109,10 @@ export default function PmDailyPlannerPage() {
                             </TableHeader>
                             <TableBody>
                               {dailyTasks.map((task) => (
-                                <TableRow key={task.id} className={`group bg-linear-to-r ${getStatusTone(task.status)} transition-colors hover:brightness-[0.98]`}>
+                                <TableRow key={task.id} 
+                                  className={`group bg-linear-to-r ${getStatusTone(task.status)} transition-colors hover:brightness-[0.98] cursor-pointer`}
+                                  onClick={() => handleOpenEdit(task)}
+                                >
                                   <TableCell className="font-medium align-top">
                                     <div className="py-1">
                                       {getTimeBadge(task.startTime, task.stopTime)}
@@ -1162,19 +1194,33 @@ export default function PmDailyPlannerPage() {
                                                  variant="default" 
                                                  size="sm" 
                                                  className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm px-3 font-bold"
-                                                 onClick={() => handleConfirmTask(task)} disabled={isReadOnly}
+                                                 onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   handleConfirmTask(task);
+                                                 }} 
+                                                 disabled={isReadOnly}
                                                >
-                                                 <Check className="mr-1 h-3 w-3" /> Confirm
+                                                 <Check className="mr-1 h-3 w-3" /> Nhận Việc
                                                </Button>
                                             )}
 
                                             {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
                                               <>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-indigo-600" onClick={() => handleOpenEdit(task)}>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-indigo-600" 
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleOpenEdit(task);
+                                                  }}
+                                                >
                                                   <Edit className="h-4 w-4" />
                                                 </Button>
-                                                {user?.role === 'ADMIN' && (
-                                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-red-500" onClick={() => setTaskPendingDelete(task)}>
+                                                {canDeleteTask(task) && (
+                                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-white/70 hover:text-red-500" 
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setTaskPendingDelete(task);
+                                                    }}
+                                                  >
                                                     <Trash2 className="h-4 w-4" />
                                                   </Button>
                                                 )}
@@ -1266,7 +1312,8 @@ export default function PmDailyPlannerPage() {
                                           {dayTasks.map(task => (
                                               <div 
                                                 key={task.id} 
-                                                className={`flex items-start gap-2.5 rounded-xl border border-slate-100 bg-linear-to-r ${getStatusTone(task.status)} p-2 transition-all hover:scale-[1.005] hover:shadow-md group sm:gap-3`}
+                                                className={`flex items-start gap-2.5 rounded-xl border border-slate-100 bg-linear-to-r ${getStatusTone(task.status)} p-2 transition-all hover:scale-[1.005] hover:shadow-md group sm:gap-3 cursor-pointer`}
+                                                onClick={() => handleOpenEdit(task)}
                                               >
                                                   <div className="shrink-0 pt-0.5">
                                                       {getStatusIcon(task.status)}
@@ -1308,21 +1355,42 @@ export default function PmDailyPlannerPage() {
                                                              variant="default" 
                                                              size="sm" 
                                                              className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold px-2.5"
-                                                             onClick={() => handleConfirmTask(task)}
+                                                             onClick={(e) => {
+                                                               e.stopPropagation();
+                                                               handleConfirmTask(task);
+                                                             }}
                                                            >
-                                                               <Check className="h-3.5 w-3.5 mr-1" /> Confirm
+                                                               <Check className="h-3.5 w-3.5 mr-1" /> Nhận Việc
                                                            </Button>
                                                         )}
 
                                                         {(isPowerUser || canEditTask(task) || task.status === 'Done') && (
-                                                           <Button 
-                                                             variant="ghost" 
-                                                             size="icon" 
-                                                             className="h-9 w-9 shrink-0 bg-white/50 text-indigo-600 border border-white/20 shadow-sm opacity-100 transition-all sm:h-8 sm:w-8 sm:bg-transparent sm:border-0 sm:shadow-none sm:opacity-0 sm:group-hover:opacity-100"
-                                                             onClick={() => handleOpenEdit(task)}
-                                                           >
-                                                               <Edit className="h-4 w-4" />
-                                                          </Button>
+                                                           <div className="flex items-center gap-1">
+                                                             <Button 
+                                                               variant="ghost" 
+                                                               size="icon" 
+                                                               className="h-9 w-9 shrink-0 bg-white/50 text-indigo-600 border border-white/20 shadow-sm opacity-100 transition-all sm:h-8 sm:w-8 sm:bg-transparent sm:border-0 sm:shadow-none sm:opacity-0 sm:group-hover:opacity-100"
+                                                               onClick={(e) => {
+                                                                 e.stopPropagation();
+                                                                 handleOpenEdit(task);
+                                                               }}
+                                                             >
+                                                                 <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                            {canDeleteTask(task) && (
+                                                              <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-9 w-9 shrink-0 bg-white/50 text-red-500 border border-white/20 shadow-sm opacity-100 transition-all sm:h-8 sm:w-8 sm:bg-transparent sm:border-0 sm:shadow-none sm:opacity-0 sm:group-hover:opacity-100"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setTaskPendingDelete(task);
+                                                                }}
+                                                              >
+                                                                  <Trash2 className="h-4 w-4" />
+                                                              </Button>
+                                                            )}
+                                                           </div>
                                                         )}
                                                     </div>
                                               </div>
@@ -1845,7 +1913,7 @@ export default function PmDailyPlannerPage() {
           <DialogHeader>
             <DialogTitle className="text-slate-900">Sync Tasks From PM Schedule</DialogTitle>
             <DialogDescription className="text-slate-600">
-              Tu dong tao task trong Monthly Planner tu cac may den han PM. He thong se bo qua task da ton tai de tranh tao trung.
+              Tự động tạo task trong Monthly Planner từ các máy đến hạn PM. Hệ thống sẽ bỏ qua task đã tồn tại để tránh tạo trùng.
             </DialogDescription>
           </DialogHeader>
 
