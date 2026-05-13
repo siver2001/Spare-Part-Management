@@ -1446,7 +1446,7 @@ export default function PmDailyPlannerPage() {
             </DialogDescription>
           </div>
           
-          <ScrollArea className="flex-1 overflow-y-auto max-h-[calc(95vh-160px)]">
+          <ScrollArea className="flex-1 max-h-[calc(95vh-160px)] sm:max-h-none">
             <div className="px-6 py-6 pb-12 space-y-8">
                             {/* SECTION: Scheduling */}
               <div className="space-y-4">
@@ -1639,10 +1639,10 @@ export default function PmDailyPlannerPage() {
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0" align="start">
+                      <PopoverContent className="w-[300px] p-0 max-h-[350px] overflow-hidden flex flex-col" align="start">
                         <Command>
                           <CommandInput placeholder="Search staff..." />
-                          <CommandList>
+                          <CommandList className="max-h-[300px] overflow-y-auto">
                             <CommandEmpty>No staff available.</CommandEmpty>
                             {filteredUsersByShift.length > 0 && (
                               <CommandGroup heading="Recommended (On Shift)">
@@ -1793,10 +1793,10 @@ export default function PmDailyPlannerPage() {
                                <ChevronsUpDown className="h-3 w-3 opacity-50" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-[280px] p-0">
+                          <PopoverContent className="w-[280px] p-0 max-h-[350px] overflow-hidden flex flex-col">
                             <Command>
                               <CommandInput placeholder="Search staff..." />
-                              <CommandList>
+                              <CommandList className="max-h-[300px] overflow-y-auto">
                                 <CommandGroup>
                                   {filteredHandoverUsers.map(u => (
                                     <CommandItem key={u.id} onSelect={() => {
