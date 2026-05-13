@@ -1446,7 +1446,7 @@ export default function PmDailyPlannerPage() {
             </DialogDescription>
           </div>
           
-          <ScrollArea className="flex-1 max-h-[calc(95vh-160px)] sm:max-h-none">
+          <ScrollArea className="flex-1 max-h-[calc(95vh-250px)]">
             <div className="px-6 py-6 pb-12 space-y-8">
                             {/* SECTION: Scheduling */}
               <div className="space-y-4">
