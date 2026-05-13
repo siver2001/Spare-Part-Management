@@ -1432,7 +1432,7 @@ export default function PmDailyPlannerPage() {
 
       {/* Task Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-xl p-0 flex flex-col overflow-hidden border-0 bg-white shadow-2xl shadow-indigo-200/50 max-h-[95vh]">
+        <DialogContent className="max-w-xl p-0 flex flex-col overflow-hidden border-0 bg-white shadow-2xl shadow-indigo-200/50 max-h-[95vh] gap-0">
           <div className="shrink-0 bg-linear-to-r from-indigo-600 via-purple-600 to-fuchsia-600 px-6 py-5 text-white">
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
@@ -1446,8 +1446,8 @@ export default function PmDailyPlannerPage() {
             </DialogDescription>
           </div>
           
-          <ScrollArea className="flex-1 max-h-[calc(95vh-250px)]">
-            <div className="px-6 py-6 pb-12 space-y-8">
+          <div className="flex-1 overflow-y-auto min-h-0 px-6 py-6 pb-32 space-y-8">
+            <div className="space-y-8">
                             {/* SECTION: Scheduling */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-indigo-600">
@@ -1888,7 +1888,7 @@ export default function PmDailyPlannerPage() {
                 </Select>
               </div>
             </div>
-          </ScrollArea>
+          </div>
           
           <DialogFooter className="shrink-0 bg-slate-50 px-6 py-4 border-t border-slate-100 gap-2 flex flex-col sm:flex-row">
             <Button 
