@@ -40,6 +40,7 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
         { header: 'QR Code Value', key: 'qrCodeValue', width: 15 },
         { header: 'Bin Location', key: 'binLocation', width: 15 },
         { header: 'Part Number', key: 'partNumber', width: 20 },
+        { header: 'Loại vật tư', key: 'materialType', width: 15 },
         { header: 'Part Name', key: 'partName', width: 30 },
         { header: 'Description', key: 'description', width: 60 }, // Fixed wide width for description
         { header: 'Cost Center', key: 'costCenter', width: 15 },
@@ -69,9 +70,10 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
         const p = data[i];
         const row = worksheet.addRow({
           no: p.no || i + 1,
-          qrCodeValue: p.qrCodeValue || '',
+          qrCodeValue: p.partNumber || p.qrCodeValue || '',
           binLocation: p.binLocation || '',
           partNumber: p.partNumber || '',
+          materialType: p.materialType || '',
           partName: p.partName || '',
           description: p.description || '',
           costCenter: p.costCenter || '',
@@ -114,9 +116,10 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
         }
 
         // 2. Add QR Image (Column C, index 2)
-        if (p.qrCodeValue) {
+        const qrValue = p.partNumber || p.qrCodeValue || '';
+        if (qrValue) {
           try {
-            const qrDataUrl = await QRCode.toDataURL(p.qrCodeValue, { 
+            const qrDataUrl = await QRCode.toDataURL(qrValue, { 
               errorCorrectionLevel: 'M',
               margin: 1,
               width: 100
@@ -182,6 +185,7 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
         const mappingKeys = {
           partName: ['PART NAME', 'Part Name', 'Tên phụ tùng'],
           partNumber: ['Part number', 'PART NUMBER', 'Mã phụ tùng'],
+          materialType: ['Loại vật tư', 'Loại', 'Nhóm vật tư', 'Material Type', 'Category'],
           description: ['DESCRIPTION', 'Mô tả', 'Thông số kỹ thuật'],
           binLocation: ['Bin Location', 'Bin', 'Vị trí'],
           qrCodeValue: ['QR Code', 'QR'],
@@ -224,6 +228,7 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
             const pNum = String(getVal(row, mappingKeys.partNumber) || '').trim();
             const bin = String(getVal(row, mappingKeys.binLocation) || '').trim();
             const qr = String(getVal(row, mappingKeys.qrCodeValue) || '').trim();
+            const matType = String(getVal(row, mappingKeys.materialType) || '').trim();
 
             if (!pName && !pNum && !bin) return null;
 
@@ -234,9 +239,10 @@ export function ExcelActions({ onImportSuccess, data }: ExcelActionsProps) {
             return {
               partName: pName,
               partNumber: pNum,
+              materialType: matType,
               description: String(getVal(row, mappingKeys.description) || '').trim(),
               binLocation: bin,
-              qrCodeValue: qr || bin, 
+              qrCodeValue: qr || pNum, 
               costCenter: String(getVal(row, mappingKeys.costCenter) || '').trim(),
               useFor: String(getVal(row, mappingKeys.useFor) || '').trim(),
               currentStockOk: okStock,

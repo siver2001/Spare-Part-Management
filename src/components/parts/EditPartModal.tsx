@@ -42,6 +42,7 @@ export function EditPartModal({
       setFormData({
         partName: part.partName,
         partNumber: part.partNumber,
+        materialType: part.materialType,
         description: part.description,
         binLocation: part.binLocation,
         safetyStockOk: part.safetyStockOk,
@@ -124,14 +125,14 @@ export function EditPartModal({
     setNewMachineName('');
   };
 
-  // Sync QR code with Bin Location
-  const handleBinChange = (value: string) => {
+  // Sync QR code with Part Number
+  const handlePartNumberChange = (value: string) => {
     setFormData(prev => ({
         ...prev,
-        binLocation: value,
+        partNumber: value,
         qrCodeValue: value
     }));
- };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,8 +179,12 @@ export function EditPartModal({
                <Input value={formData.partName || ''} onChange={(e) => handleChange('partName', e.target.value)} className="sm:col-span-3" />
              </div>
              <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-               <Label className="sm:text-right">Part Number</Label>
-               <Input value={formData.partNumber || ''} onChange={(e) => handleChange('partNumber', e.target.value)} className="sm:col-span-3" />
+                <Label className="sm:text-right">Part Number</Label>
+                <Input value={formData.partNumber || ''} onChange={(e) => handlePartNumberChange(e.target.value)} className="sm:col-span-3" />
+             </div>
+             <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label className="sm:text-right">Loại vật tư</Label>
+                <Input value={formData.materialType || ''} onChange={(e) => handleChange('materialType', e.target.value)} className="sm:col-span-3" />
              </div>
              <div className="grid gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
                <Label className="mt-2 sm:text-right">Description</Label>
@@ -198,47 +203,9 @@ export function EditPartModal({
                 <Label className="sm:text-right">Use For</Label>
                 <Input value={formData.useFor || ''} onChange={(e) => handleChange('useFor', e.target.value)} className="sm:col-span-3" />
               </div>
-              <div className="grid gap-2 sm:grid-cols-4 sm:items-start sm:gap-4">
-                <Label className="mt-2 sm:text-right">{'M\u00E1y'}</Label>
-                <div className="space-y-3 sm:col-span-3">
-                  <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
-                    {availableMachines.length > 0 ? (
-                      availableMachines.map((machine) => (
-                        <label key={machine} className="flex items-center gap-2 text-sm">
-                          <Checkbox
-                            checked={(formData.machines || []).includes(machine)}
-                            onCheckedChange={(checked) => handleMachineToggle(machine, checked === true)}
-                          />
-                          <span>{machine}</span>
-                        </label>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground sm:col-span-2">
-                        {'Ch\u01B0a c\u00F3 danh s\u00E1ch m\u00E1y. Nh\u1EADp t\u00EAn m\u00E1y b\u00EAn d\u01B0\u1EDBi \u0111\u1EC3 th\u00EAm.'}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Input
-                      value={newMachineName}
-                      onChange={(e) => setNewMachineName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddMachineOption();
-                        }
-                      }}
-                      placeholder={'Nh\u1EADp t\u00EAn m\u00E1y m\u1EDBi'}
-                    />
-                    <Button type="button" variant="outline" onClick={handleAddMachineOption}>
-                      {'Th\u00EAm m\u00E1y'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
               <div className="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                 <Label className="sm:text-right">Bin Location</Label>
-                <Input value={formData.binLocation || ''} onChange={(e) => handleBinChange(e.target.value)} className="sm:col-span-3" />
+                <Input value={formData.binLocation || ''} onChange={(e) => handleChange('binLocation', e.target.value)} className="sm:col-span-3" />
              </div>
              
              {/* Stock Section */}

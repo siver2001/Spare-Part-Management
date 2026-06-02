@@ -31,12 +31,12 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
     qrCodeValue: ''
   });
 
-  // Auto-generate QR from Bin Location
-  const handleBinChange = (value: string) => {
+  // Auto-generate QR from Part Number
+  const handlePartNumberChange = (value: string) => {
      setFormData(prev => ({
          ...prev,
-         binLocation: value,
-         qrCodeValue: value // QR Code is exactly the Bin Location
+         partNumber: value,
+         qrCodeValue: value // QR Code is exactly the Part Number
      }));
   };
 
@@ -183,7 +183,7 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
                             )}
                         </div>
                         <div className="overflow-hidden">
-                            <p className="text-xs font-mono font-medium truncate text-gray-700">{formData.qrCodeValue || 'Waiting for BIN...'}</p>
+                            <p className="text-xs font-mono font-medium truncate text-gray-700">{formData.qrCodeValue || 'Waiting for Part Number...'}</p>
                         </div>
                     </div>
                 </div>
@@ -196,10 +196,14 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
                        <Label>Part Name <span className="text-red-500">*</span></Label>
                        <Input value={formData.partName || ''} onChange={(e) => handleChange('partName', e.target.value)} placeholder="e.g. Ball Bearing" required />
                      </div>
-                     <div className="space-y-2">
-                       <Label>Part Number <span className="text-red-500">*</span></Label>
-                       <Input value={formData.partNumber || ''} onChange={(e) => handleChange('partNumber', e.target.value)} placeholder="e.g. BR-1234" required />
-                     </div>
+                      <div className="space-y-2">
+                        <Label>Part Number <span className="text-red-500">*</span></Label>
+                        <Input value={formData.partNumber || ''} onChange={(e) => handlePartNumberChange(e.target.value)} placeholder="e.g. BR-1234" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Loại vật tư</Label>
+                        <Input value={formData.materialType || ''} onChange={(e) => handleChange('materialType', e.target.value)} placeholder="e.g. Cơ khí, Điện" />
+                      </div>
                      <div className="space-y-2">
                        <Label>Description</Label>
                        <textarea 
@@ -222,10 +226,10 @@ export function AddPartModal({ isOpen, onClose, onSuccess }: AddPartModalProps) 
                      </div>
 
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                           <Label>Bin Location</Label>
-                           <Input value={formData.binLocation || ''} onChange={(e) => handleBinChange(e.target.value)} placeholder="e.g. A-01" />
-                        </div>
+                         <div className="space-y-2">
+                            <Label>Bin Location</Label>
+                            <Input value={formData.binLocation || ''} onChange={(e) => handleChange('binLocation', e.target.value)} placeholder="e.g. A-01" />
+                         </div>
                         <div className="space-y-2">
                            <Label>QR Code Value</Label>
                            <Input value={formData.qrCodeValue || ''} onChange={(e) => handleChange('qrCodeValue', e.target.value)} placeholder="Auto-generated" />

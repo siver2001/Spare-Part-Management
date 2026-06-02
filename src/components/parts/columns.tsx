@@ -217,9 +217,10 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
     'Below Safety',
     'Greater Than or Equal to Safety'
   ];
-  const machineFilterOptions = Array.from(
+
+  const materialTypeFilterOptions = Array.from(
     new Set(
-      allData.flatMap((part) => part.machines || []).filter(Boolean)
+      allData.map((part) => part.materialType).filter((val): val is string => !!val)
     )
   ).sort((a, b) => a.localeCompare(b));
 
@@ -253,6 +254,17 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
     cell: ({ row }) => <div className="font-mono text-sm">{row.getValue('partNumber')}</div>
   },
   {
+    accessorKey: 'materialType',
+    header: ({ column }) => <ColumnHeaderWithFilter column={column} title="Loại vật tư" options={materialTypeFilterOptions} hideSort />,
+    enableSorting: false,
+    filterFn: (row, _id, filterValues: string[]) => {
+      if (!filterValues || filterValues.length === 0) return true;
+      const val = row.original.materialType || '';
+      return filterValues.includes(val);
+    },
+    cell: ({ row }) => <div className="text-sm">{row.original.materialType || '-'}</div>
+  },
+  {
     accessorKey: 'partName',
     header: 'Part Name',
     cell: ({ row }) => <div className="font-medium whitespace-nowrap">{row.getValue('partName')}</div>
@@ -266,33 +278,7 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
       </div>
     )
   },
-  {
-    id: 'machines',
-    accessorFn: (row) => (row.machines || []).join(', '),
-    header: ({ column }) => <ColumnHeaderWithFilter column={column} title={'M\u00E1y'} options={machineFilterOptions} hideSort />,
-    enableSorting: false,
-    filterFn: (row, _id, filterValues: string[]) => {
-      if (!filterValues || filterValues.length === 0) return true;
-      const machines = row.original.machines || [];
-      return filterValues.some((value) => machines.includes(value));
-    },
-    cell: ({ row }) => {
-      const machines = row.original.machines || [];
-      if (machines.length === 0) {
-        return <div className="text-sm text-muted-foreground">-</div>;
-      }
 
-      return (
-        <div className="flex max-w-[220px] flex-wrap gap-1">
-          {machines.map((machine) => (
-            <Badge key={machine} variant="outline" className="bg-slate-50 text-slate-700">
-              {machine}
-            </Badge>
-          ))}
-        </div>
-      );
-    }
-  },
   {
     accessorKey: 'description',
     header: 'Description',
@@ -369,7 +355,7 @@ export const createColumns = (refreshData: () => void, allData: SparePart[]): Co
       <PartActions
         part={row.original}
         refreshData={refreshData}
-        machineOptions={machineFilterOptions}
+        machineOptions={[]}
       />
     ),
   },

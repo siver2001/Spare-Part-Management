@@ -7,7 +7,6 @@ import {
   writeClientCache,
 } from '@/lib/clientCache';
 
-const RETENTION_DAYS = 60;
 const PM_DAILY_CACHE_PREFIX = 'pm-daily:';
 const PM_DAILY_CACHE_TTL = 2 * 60 * 1000;
 
@@ -149,9 +148,35 @@ export const pmDailyDb = {
 
   async cleanupOldTasks() {
     const threshold = new Date();
-    threshold.setDate(threshold.getDate() - RETENTION_DAYS);
+    threshold.setMonth(threshold.getMonth() - 2);
     const thresholdStr = threshold.toISOString().split('T')[0];
 
-    await supabase.from('pm_daily_assignments').delete().lt('date', thresholdStr);
+    const { data, error } = await supabase
+      .from('pm_daily_assignments')
+      .select('date')
+      .lt('date', thresholdStr)
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching old task dates:', error);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      return;
+    }
+
+    const uniqueDates = Array.from(new Set(data.map(item => item.date))).sort();
+
+    for (const dateStr of uniqueDates) {
+      const { error: deleteError } = await supabase
+        .from('pm_daily_assignments')
+        .delete()
+        .eq('date', dateStr);
+
+      if (deleteError) {
+        console.error(`Error deleting tasks for date ${dateStr}:`, deleteError);
+      }
+    }
   }
 };

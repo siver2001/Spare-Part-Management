@@ -270,7 +270,7 @@ export function ImportGoodsReport({ onImportSuccess, existingParts }: ImportGood
                 partName: item.partName,
                 partNumber: item.partNumber || '',
                 binLocation: binLoc,
-                qrCodeValue: binLoc,
+                qrCodeValue: item.partNumber || '',
                 currentStockOk: item.quantity,
                 currentStockDamaged: 0,
                 costCenter: item.costCenter,

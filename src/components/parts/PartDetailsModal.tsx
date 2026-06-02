@@ -52,9 +52,9 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                     {/* QR Code Section */}
                     <div className="mt-4 p-4 border rounded-lg bg-white flex flex-col items-center gap-3 shadow-sm">
                         <div className="bg-white p-2 rounded-lg border w-full max-w-[150px]">
-                             {part.qrCodeValue ? (
+                             {(part.partNumber || part.qrCodeValue) ? (
                                 <QRCode
-                                value={part.qrCodeValue}
+                                value={part.partNumber || part.qrCodeValue}
                                 size={128}
                                 style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                                 viewBox={`0 0 256 256`}
@@ -68,7 +68,7 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                         <div className="text-center w-full">
                             <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-1">Scan Code</p>
                             <p className="text-sm font-mono font-bold bg-gray-100 px-3 py-1 rounded-full inline-block border break-all max-w-full">
-                                {part.qrCodeValue || 'N/A'}
+                                {part.partNumber || part.qrCodeValue || 'N/A'}
                             </p>
                         </div>
                     </div>
@@ -108,26 +108,16 @@ export function PartDetailsModal({ isOpen, onClose, part }: PartDetailsModalProp
                              <span className="font-medium">{part.binLocation || 'N/A'}</span>
                         </div>
                         <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs">Loại vật tư</span>
+                            <span className="font-medium">{part.materialType || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs">Cost Center</span>
                             <span className="font-medium">{part.costCenter || 'N/A'}</span>
                         </div>
                          <div className="flex flex-col">
                              <span className="text-muted-foreground text-xs">Use For</span>
                              <span className="font-medium">{part.useFor || 'N/A'}</span>
-                         </div>
-                         <div className="flex flex-col">
-                             <span className="text-muted-foreground text-xs flex items-center gap-1"><Wrench className="h-3 w-3" /> {'M\u00E1y'}</span>
-                             <div className="mt-1 flex flex-wrap gap-1">
-                                 {(part.machines || []).length > 0 ? (
-                                   (part.machines || []).map((machine) => (
-                                     <Badge key={machine} variant="outline" className="bg-slate-50 text-slate-700">
-                                       {machine}
-                                     </Badge>
-                                   ))
-                                 ) : (
-                                   <span className="font-medium">N/A</span>
-                                 )}
-                             </div>
                          </div>
                          <div className="flex flex-col">
                              <span className="text-muted-foreground text-xs flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Min Stock</span>

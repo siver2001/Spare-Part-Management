@@ -49,6 +49,7 @@ const mapPart = (p: Record<string, unknown>): SparePart => ({
   no: Number(p.no),
   partName: String(p.part_name),
   partNumber: String(p.part_number),
+  materialType: (p.material_type as string | undefined) || undefined,
   description: (p.description as string | undefined) || undefined,
   binLocation: String(p.bin_location),
   currentStockOk: Number(p.current_stock_ok),
@@ -317,8 +318,7 @@ export const SupabaseService = {
     const { data, error } = await supabase
       .from('spare_parts')
       .select('*')
-      .order('bin_location', { ascending: true })
-      .order('part_name', { ascending: true });
+      .order('no', { ascending: true });
 
     if (error) throw error;
     const parts = (data || []).map((p) => mapPart(p as Record<string, unknown>));
@@ -343,6 +343,7 @@ export const SupabaseService = {
         no: nextNo,
         part_name: data.partName,
         part_number: data.partNumber,
+        material_type: data.materialType,
         description: data.description,
         bin_location: data.binLocation,
         current_stock_ok: data.currentStockOk,
@@ -373,6 +374,7 @@ export const SupabaseService = {
     const mappedUpdates: Record<string, unknown> = {};
     if (updates.partName !== undefined) mappedUpdates.part_name = updates.partName;
     if (updates.partNumber !== undefined) mappedUpdates.part_number = updates.partNumber;
+    if (updates.materialType !== undefined) mappedUpdates.material_type = updates.materialType;
     if (updates.description !== undefined) mappedUpdates.description = updates.description;
     if (updates.binLocation !== undefined) mappedUpdates.bin_location = updates.binLocation;
     if (updates.currentStockOk !== undefined) mappedUpdates.current_stock_ok = updates.currentStockOk;
@@ -413,6 +415,13 @@ export const SupabaseService = {
   },
 
   deleteAllParts: async (): Promise<void> => {
+    const { error: txError } = await supabase
+      .from('transactions')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (txError) throw txError;
+
     const { error } = await supabase
       .from('spare_parts')
       .delete()
@@ -420,6 +429,7 @@ export const SupabaseService = {
 
     if (error) throw error;
     invalidateClientCache(CACHE_KEYS.parts);
+    invalidateClientCache(CACHE_KEYS.transactions);
   },
 
   checkBinLocation: async (binLocation: string): Promise<SparePart | null> => {
@@ -442,6 +452,7 @@ export const SupabaseService = {
         no: p.no || (index + 1), 
         part_name: p.partName,
         part_number: p.partNumber,
+        material_type: p.materialType,
         description: p.description,
         bin_location: p.binLocation,
         current_stock_ok: p.currentStockOk,

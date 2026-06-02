@@ -17,6 +17,7 @@ export interface SparePart {
   qrCodeValue: string; // Moved up as per user request order preference (logical only)
   binLocation: string;
   partNumber: string;
+  materialType?: string; // Loại vật tư
   partName: string;
   description?: string;
   costCenter?: string; // New
