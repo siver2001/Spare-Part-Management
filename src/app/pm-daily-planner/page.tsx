@@ -18,7 +18,7 @@ import {
   Search,
   History
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
 import { ProtectedLayout } from '@/components/layout/ProtectedLayout';
 import { Badge } from '@/components/ui/badge';
@@ -178,12 +178,21 @@ function getSyncDateForWeek(year: number, week: number, mode: SyncMode, selected
   return formatDateKey(matchedDate || weekDates[0]);
 }
 
+const formatDisplayRange = (d: Date) => {
+  const prev = subMonths(d, 1);
+  if (prev.getFullYear() === d.getFullYear()) {
+    return `${format(prev, 'MMMM')} & ${format(d, 'MMMM yyyy')}`;
+  } else {
+    return `${format(prev, 'MMMM yyyy')} & ${format(d, 'MMMM yyyy')}`;
+  }
+};
+
 export default function PmDailyPlannerPage() {
   const { user } = useAuth();
   const isPowerUser = user && (user.role === 'ADMIN' || user.role === 'POWER_USER');
   const isSuperAdmin = user?.role === 'ADMIN';
   const initialDateRef = useRef(new Date());
-  const initialMonthStartRef = useRef(format(startOfMonth(initialDateRef.current), 'yyyy-MM-dd'));
+  const initialMonthStartRef = useRef(format(startOfMonth(subMonths(initialDateRef.current, 1)), 'yyyy-MM-dd'));
   const initialMonthEndRef = useRef(format(endOfMonth(initialDateRef.current), 'yyyy-MM-dd'));
   const initialTasksRef = useRef(
     pmDailyDb.peekTasks(initialMonthStartRef.current, initialMonthEndRef.current)
@@ -339,7 +348,7 @@ export default function PmDailyPlannerPage() {
 
     let isMounted = true;
     const fetchTasks = async () => {
-      const start = format(startOfMonth(date), 'yyyy-MM-dd');
+      const start = format(startOfMonth(subMonths(date, 1)), 'yyyy-MM-dd');
       const end = format(endOfMonth(date), 'yyyy-MM-dd');
       const cachedTasks = pmDailyDb.peekTasks(start, end);
       if (cachedTasks) {
@@ -383,7 +392,7 @@ export default function PmDailyPlannerPage() {
 
   const loadMonthTasks = useCallback(async () => {
     if (!date || !mounted) return;
-    const start = format(startOfMonth(date), 'yyyy-MM-dd');
+    const start = format(startOfMonth(subMonths(date, 1)), 'yyyy-MM-dd');
     const end = format(endOfMonth(date), 'yyyy-MM-dd');
     const allTasks = await pmDailyDb.getTasks(start, end, { forceRefresh: true });
     setTasks(allTasks);
@@ -907,7 +916,7 @@ export default function PmDailyPlannerPage() {
         <header className="flex flex-col gap-3 rounded-xl border-0 bg-linear-to-r from-slate-900 via-indigo-900 to-fuchsia-900 p-3 shadow-xl shadow-indigo-900/20 md:flex-row md:items-center md:justify-between sm:p-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white">Monthly Planner</h1>
-            <p className="text-sm text-slate-200">Plan and track daily PM assignments for {mounted && date ? format(date, 'MMMM yyyy') : ''}</p>
+            <p className="text-sm text-slate-200">Plan and track daily PM assignments for {mounted && date ? (viewMode === 'monthly' ? formatDisplayRange(date) : format(date, 'MMMM yyyy')) : ''}</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="mr-0 flex gap-1 rounded-lg border border-white/20 bg-white/10 p-1 sm:mr-2">
@@ -1248,7 +1257,7 @@ export default function PmDailyPlannerPage() {
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="flex flex-col md:flex-row md:items-center gap-4">
                           <CardTitle className="text-lg font-bold whitespace-nowrap">
-                            {plannerMode === 'active' ? 'Active Tasks' : 'History: Done Tasks'} - {mounted && date ? format(date, 'MMMM yyyy') : ''}
+                            {plannerMode === 'active' ? 'Active Tasks' : 'History: Done Tasks'} - {mounted && date ? formatDisplayRange(date) : ''}
                           </CardTitle>
                           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
                               {[
@@ -1289,7 +1298,7 @@ export default function PmDailyPlannerPage() {
                       {tasks.length === 0 ? (
                           <div className="flex flex-col items-center justify-center h-[300px] text-slate-400 space-y-4">
                               <ClipboardList className="h-12 w-12 opacity-20" />
-                              <p>No tasks found for this month.</p>
+                              <p>No tasks found for this period.</p>
                           </div>
                       ) : (
                           <div className="space-y-3 p-2 sm:space-y-4 sm:p-3">
