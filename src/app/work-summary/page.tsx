@@ -955,7 +955,7 @@ export default function WorkSummaryPage() {
                             </div>
 
                             {/* 24h timeline track container */}
-                            <div className="relative flex-1 h-9 rounded-lg bg-amber-100 border border-amber-200 shadow-xs flex items-center overflow-hidden">
+                            <div className="relative flex-1 h-14 rounded-lg bg-amber-100 border border-amber-200 shadow-xs flex items-center overflow-hidden">
                               {/* Shift Hours background coloring in red */}
                               {shiftBlocks.map((block, bIdx) => (
                                 <div
@@ -975,14 +975,14 @@ export default function WorkSummaryPage() {
                                   <div
                                     key={report.id}
                                     className={cn(
-                                      "absolute h-7 rounded-md shadow-xs flex items-center px-2 text-[10px] font-bold text-white transition-all cursor-pointer group/block select-none overflow-hidden bg-gradient-to-r",
+                                      "absolute h-12 rounded-md shadow-xs flex items-start p-1 text-[8px] font-bold text-white transition-all cursor-pointer group/block select-none overflow-hidden bg-gradient-to-r",
                                       getActivityColorClass(report.activity)
                                     )}
                                     style={blockStyle}
                                     title={`${report.startTime} - ${report.endTime}: ${report.activity}`}
                                   >
                                     {/* Activity Text */}
-                                    <span className="truncate w-full block">
+                                    <span className="w-full block whitespace-normal break-words leading-[9px]">
                                       {report.activity}
                                     </span>
 
