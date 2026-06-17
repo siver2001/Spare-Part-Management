@@ -537,9 +537,10 @@ export default function WorkSummaryPage() {
         </header>
 
         {/* Filters Panel Card */}
-        <Card className="border-0 bg-white shadow-md shadow-slate-200/50">
-          <CardHeader className="py-4 px-6 border-b">
+        <Card className="border-0 border-l-4 border-l-indigo-600 bg-white shadow-md shadow-slate-200/50 overflow-hidden">
+          <CardHeader className="py-4 px-6 border-b bg-slate-50/50">
             <CardTitle className="text-sm font-black text-slate-800 flex items-center gap-2">
+              <Settings className="h-4.5 w-4.5 text-indigo-600" />
               Bộ lọc tổng hợp
             </CardTitle>
           </CardHeader>
@@ -548,10 +549,13 @@ export default function WorkSummaryPage() {
               
               {/* Date Filter Mode Selector */}
               <div className="space-y-1">
-                <Label htmlFor="time-mode" className="text-xs font-bold text-slate-500 uppercase">Thời gian xem:</Label>
+                <Label htmlFor="time-mode" className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-indigo-500" />
+                  Thời gian xem:
+                </Label>
                 <select
                   id="time-mode"
-                  className="flex h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-slate-100/70 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none shadow-xs cursor-pointer"
                   value={timeMode}
                   onChange={(e) => setTimeMode(e.target.value as 'WEEK' | 'CUSTOM')}
                 >
@@ -563,10 +567,13 @@ export default function WorkSummaryPage() {
               {/* Time value selectors */}
               {timeMode === 'WEEK' ? (
                 <div className="space-y-1 md:col-span-2">
-                  <Label htmlFor="week-select" className="text-xs font-bold text-slate-500 uppercase">Chọn tuần báo cáo:</Label>
+                  <Label htmlFor="week-select" className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-indigo-500" />
+                    Chọn tuần báo cáo:
+                  </Label>
                   <select
                     id="week-select"
-                    className="flex h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-slate-100/70 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none shadow-xs cursor-pointer"
                     value={selectedWeek}
                     onChange={(e) => setSelectedWeek(e.target.value)}
                   >
@@ -578,21 +585,27 @@ export default function WorkSummaryPage() {
               ) : (
                 <>
                   <div className="space-y-1">
-                    <Label htmlFor="custom-start-date" className="text-xs font-bold text-slate-500 uppercase">Từ ngày:</Label>
+                    <Label htmlFor="custom-start-date" className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-indigo-500" />
+                      Từ ngày:
+                    </Label>
                     <Input
                       id="custom-start-date"
                       type="date"
-                      className="h-9 text-xs font-semibold"
+                      className="h-9 text-xs font-bold text-slate-700 rounded-lg border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
                       value={customStartDate}
                       onChange={(e) => setCustomStartDate(e.target.value)}
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="custom-end-date" className="text-xs font-bold text-slate-500 uppercase">Đến ngày:</Label>
+                    <Label htmlFor="custom-end-date" className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-indigo-500" />
+                      Đến ngày:
+                    </Label>
                     <Input
                       id="custom-end-date"
                       type="date"
-                      className="h-9 text-xs font-semibold"
+                      className="h-9 text-xs font-bold text-slate-700 rounded-lg border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
                       value={customEndDate}
                       onChange={(e) => setCustomEndDate(e.target.value)}
                     />
@@ -602,10 +615,13 @@ export default function WorkSummaryPage() {
 
               {/* Employee filter */}
               <div className="space-y-1">
-                <Label htmlFor="dash-user" className="text-xs font-bold text-slate-500 uppercase">Lọc theo nhân viên:</Label>
+                <Label htmlFor="dash-user" className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-indigo-500" />
+                  Lọc theo nhân viên:
+                </Label>
                 <select
                   id="dash-user"
-                  className="flex h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-slate-100/70 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none shadow-xs cursor-pointer"
                   value={selectedUserFilter}
                   onChange={(e) => setSelectedUserFilter(e.target.value)}
                 >
@@ -623,15 +639,18 @@ export default function WorkSummaryPage() {
             <div className="grid gap-4 md:grid-cols-4 border-t pt-4">
               {/* Activity query */}
               <div className="space-y-1 md:col-span-4">
-                <Label htmlFor="dash-search" className="text-xs font-bold text-slate-500 uppercase">Tìm từ khóa công việc hoặc tên máy:</Label>
+                <Label htmlFor="dash-search" className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                  <Search className="h-3.5 w-3.5 text-indigo-500" />
+                  Tìm từ khóa công việc hoặc tên máy:
+                </Label>
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     id="dash-search"
                     placeholder="Tìm kiếm nội dung hoạt động, tên máy móc..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 h-9 text-xs"
+                    className="pl-9 h-9 text-xs font-bold text-slate-700 rounded-lg border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
                   />
                 </div>
               </div>
@@ -641,22 +660,34 @@ export default function WorkSummaryPage() {
 
         {/* KPI Statistics Row */}
         <div className="grid gap-4 sm:grid-cols-3">
-          <Card className="overflow-hidden border-0 bg-linear-to-br from-indigo-600 to-indigo-800 text-white shadow-lg shadow-indigo-600/15">
-            <CardHeader className="pb-2">
-              <CardDescription className="text-indigo-200 text-xs font-medium uppercase tracking-wider">Tổng giờ làm việc ghi nhận</CardDescription>
-              <CardTitle className="text-3xl font-black text-white">{dashboardStats.totalHours} giờ</CardTitle>
+          <Card className="relative overflow-hidden border-0 bg-linear-to-br from-indigo-600 to-indigo-800 text-white shadow-lg shadow-indigo-600/15">
+            <div className="absolute right-0 top-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-white/10 blur-xl pointer-events-none" />
+            <CardHeader className="pb-2 flex flex-row items-start justify-between">
+              <div className="space-y-1">
+                <CardDescription className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Tổng giờ làm việc</CardDescription>
+                <CardTitle className="text-3xl font-black text-white">{dashboardStats.totalHours} giờ</CardTitle>
+              </div>
+              <Clock className="h-8 w-8 text-indigo-300/30 shrink-0" />
             </CardHeader>
           </Card>
-          <Card className="overflow-hidden border-0 bg-linear-to-br from-purple-600 to-fuchsia-800 text-white shadow-lg shadow-fuchsia-600/15">
-            <CardHeader className="pb-2">
-              <CardDescription className="text-purple-200 text-xs font-medium uppercase tracking-wider">Nhân sự tham gia khai báo</CardDescription>
-              <CardTitle className="text-3xl font-black text-white">{dashboardStats.activeUsersCount} thành viên</CardTitle>
+          <Card className="relative overflow-hidden border-0 bg-linear-to-br from-purple-600 to-fuchsia-800 text-white shadow-lg shadow-fuchsia-600/15">
+            <div className="absolute right-0 top-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-white/10 blur-xl pointer-events-none" />
+            <CardHeader className="pb-2 flex flex-row items-start justify-between">
+              <div className="space-y-1">
+                <CardDescription className="text-purple-200 text-xs font-bold uppercase tracking-wider">Nhân sự tham gia</CardDescription>
+                <CardTitle className="text-3xl font-black text-white">{dashboardStats.activeUsersCount} thành viên</CardTitle>
+              </div>
+              <Users className="h-8 w-8 text-purple-300/30 shrink-0" />
             </CardHeader>
           </Card>
-          <Card className="overflow-hidden border-0 bg-linear-to-br from-emerald-500 to-teal-700 text-white shadow-lg shadow-emerald-600/15">
-            <CardHeader className="pb-2">
-              <CardDescription className="text-emerald-100 text-xs font-medium uppercase tracking-wider">Số lượt ghi nhận hoạt động</CardDescription>
-              <CardTitle className="text-3xl font-black text-white">{dashboardStats.totalEntries} lượt</CardTitle>
+          <Card className="relative overflow-hidden border-0 bg-linear-to-br from-emerald-500 to-teal-700 text-white shadow-lg shadow-emerald-600/15">
+            <div className="absolute right-0 top-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-white/10 blur-xl pointer-events-none" />
+            <CardHeader className="pb-2 flex flex-row items-start justify-between">
+              <div className="space-y-1">
+                <CardDescription className="text-emerald-100 text-xs font-bold uppercase tracking-wider">Lượt ghi nhận hoạt động</CardDescription>
+                <CardTitle className="text-3xl font-black text-white">{dashboardStats.totalEntries} lượt</CardTitle>
+              </div>
+              <Activity className="h-8 w-8 text-emerald-200/30 shrink-0" />
             </CardHeader>
           </Card>
         </div>
@@ -665,7 +696,7 @@ export default function WorkSummaryPage() {
         <div className="grid gap-6 md:grid-cols-2">
           
           {/* Chart 1: Machine Repair Time */}
-          <Card className="border-0 bg-white shadow-md shadow-slate-200/50 overflow-hidden">
+          <Card className="border-0 border-l-4 border-l-rose-500 bg-white shadow-md shadow-slate-200/50 overflow-hidden">
             <CardHeader className="py-4 px-6 border-b bg-slate-50/50 flex flex-row items-center gap-2">
               <Wrench className="h-4.5 w-4.5 text-rose-500" />
               <div>
@@ -710,7 +741,7 @@ export default function WorkSummaryPage() {
           </Card>
 
           {/* Chart 2: Other Tasks Time */}
-          <Card className="border-0 bg-white shadow-md shadow-slate-200/50 overflow-hidden">
+          <Card className="border-0 border-l-4 border-l-indigo-500 bg-white shadow-md shadow-slate-200/50 overflow-hidden">
             <CardHeader className="py-4 px-6 border-b bg-slate-50/50 flex flex-row items-center gap-2">
               <Settings className="h-4.5 w-4.5 text-indigo-500" />
               <div>
@@ -758,26 +789,36 @@ export default function WorkSummaryPage() {
 
         {/* Tabs Content */}
         <Tabs defaultValue="dashboard" className="w-full space-y-6">
-          <TabsList className="grid w-full max-w-lg grid-cols-3 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
-            <TabsTrigger value="reporting" className="rounded-lg text-xs font-bold transition-all">
-              <Clock className="mr-2 h-4 w-4" />
+          <TabsList className="grid w-full max-w-lg grid-cols-3 rounded-xl bg-slate-100/80 p-1 backdrop-blur-md shadow-inner border border-slate-200/50">
+            <TabsTrigger 
+              value="reporting" 
+              className="group rounded-lg text-xs font-bold transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+            >
+              <Clock className="mr-2 h-4 w-4 text-emerald-600 group-data-[state=active]:text-white transition-colors" />
               Báo cáo của tôi
             </TabsTrigger>
-            <TabsTrigger value="dashboard" className="rounded-lg text-xs font-bold transition-all">
-              <Users className="mr-2 h-4 w-4" />
+            <TabsTrigger 
+              value="dashboard" 
+              className="group rounded-lg text-xs font-bold transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+            >
+              <Users className="mr-2 h-4 w-4 text-indigo-600 group-data-[state=active]:text-white transition-colors" />
               Sơ đồ thời gian
             </TabsTrigger>
-            <TabsTrigger value="details" className="rounded-lg text-xs font-bold transition-all">
-              <FileText className="mr-2 h-4 w-4" />
+            <TabsTrigger 
+              value="details" 
+              className="group rounded-lg text-xs font-bold transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-fuchsia-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+            >
+              <FileText className="mr-2 h-4 w-4 text-fuchsia-600 group-data-[state=active]:text-white transition-colors" />
               Bảng chi tiết
             </TabsTrigger>
           </TabsList>
 
           {/* TAB 1: BÁO CÁO CỦA TÔI */}
           <TabsContent value="reporting" className="space-y-6 focus-visible:ring-0">
-            <Card className="border-0 bg-white shadow-lg shadow-slate-200/50">
-              <CardHeader className="border-b border-slate-50 py-4 px-6">
-                <CardTitle className="text-base font-black text-slate-800">
+            <Card className="border-0 border-l-4 border-l-emerald-500 bg-white shadow-lg shadow-slate-200/50 overflow-hidden">
+              <CardHeader className="border-b border-slate-100/80 py-4 px-6 bg-slate-50/50">
+                <CardTitle className="text-base font-black text-slate-800 flex items-center gap-2">
+                  <Clock className="h-4.5 w-4.5 text-emerald-500" />
                   Báo cáo cá nhân của tôi
                 </CardTitle>
                 <CardDescription>
@@ -835,8 +876,8 @@ export default function WorkSummaryPage() {
 
           {/* TAB 2: SƠ ĐỒ THỜI GIAN (GANTT) */}
           <TabsContent value="dashboard" className="space-y-6 focus-visible:ring-0">
-            <Card className="border-0 bg-white shadow-xl shadow-slate-200/60 overflow-hidden">
-              <CardHeader className="border-b border-slate-50 py-4 px-6 bg-slate-50/50">
+            <Card className="border-0 border-l-4 border-l-indigo-600 bg-white shadow-xl shadow-slate-200/60 overflow-hidden">
+              <CardHeader className="border-b border-slate-100/80 py-4 px-6 bg-slate-50/50">
                 <CardTitle className="text-base font-black text-slate-800 flex items-center gap-2">
                   <Activity className="h-4.5 w-4.5 text-indigo-600 animate-pulse" />
                   Sơ đồ phân bổ công việc (Timeline)
@@ -914,12 +955,12 @@ export default function WorkSummaryPage() {
                             </div>
 
                             {/* 24h timeline track container */}
-                            <div className="relative flex-1 h-9 rounded-lg bg-amber-50/50 border border-amber-100/40 shadow-xs flex items-center overflow-hidden">
+                            <div className="relative flex-1 h-9 rounded-lg bg-amber-100 border border-amber-200 shadow-xs flex items-center overflow-hidden">
                               {/* Shift Hours background coloring in red */}
                               {shiftBlocks.map((block, bIdx) => (
                                 <div
                                   key={bIdx}
-                                  className="absolute h-full bg-rose-100/50 pointer-events-none"
+                                  className="absolute h-full bg-rose-200/70 pointer-events-none"
                                   style={block}
                                   title={`Thời gian trong ca làm việc (${shiftCode})`}
                                 />
@@ -987,11 +1028,11 @@ export default function WorkSummaryPage() {
                     <div className="mt-4 border-t pt-4 flex flex-wrap items-center justify-between gap-4 text-[10px] font-bold text-slate-400 select-none">
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 max-h-24 overflow-y-auto pr-2">
                         <span className="flex items-center gap-1.5 border-r pr-3">
-                          <span className="h-3 w-3 rounded-sm bg-rose-100 border border-rose-300 shrink-0 shadow-xs" />
+                          <span className="h-3 w-3 rounded-sm bg-rose-200 border border-rose-400 shrink-0 shadow-xs" />
                           <span className="text-rose-600 font-extrabold">Trống trong ca (Chưa báo cáo)</span>
                         </span>
                         <span className="flex items-center gap-1.5 border-r pr-3">
-                          <span className="h-3 w-3 rounded-sm bg-amber-50 border border-amber-200 shrink-0 shadow-xs" />
+                          <span className="h-3 w-3 rounded-sm bg-amber-100 border border-amber-300 shrink-0 shadow-xs" />
                           <span className="text-amber-600 font-extrabold">Trống ngoài ca (Tự do)</span>
                         </span>
                         
@@ -1021,10 +1062,10 @@ export default function WorkSummaryPage() {
 
           {/* TAB 3: BẢNG CHI TIẾT TỔNG HỢP */}
           <TabsContent value="details" className="space-y-6 focus-visible:ring-0">
-            <Card className="border-0 bg-white shadow-md shadow-slate-200/50">
-              <CardHeader className="border-b border-slate-50 py-4 px-6">
-                <CardTitle className="text-sm font-black text-slate-800 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-indigo-600" />
+            <Card className="border-0 border-l-4 border-l-fuchsia-500 bg-white shadow-md shadow-slate-200/50 overflow-hidden">
+              <CardHeader className="border-b border-slate-100/80 py-4 px-6 bg-slate-50/50">
+                <CardTitle className="text-base font-black text-slate-800 flex items-center gap-2">
+                  <FileText className="h-4.5 w-4.5 text-fuchsia-500" />
                   Bảng tổng hợp chi tiết công việc trong tuần
                 </CardTitle>
                 <CardDescription>
