@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { Package, History, Users, Shield, ChevronLeft, ChevronRight, CalendarClock, TriangleAlert, Clock } from 'lucide-react';
+import { Package, History, Users, Shield, ChevronLeft, ChevronRight, CalendarClock, TriangleAlert, Clock, FileText, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
@@ -169,6 +169,18 @@ export function AppSidebar({
       href: '/working-hours',
       label: 'Working Hours',
       icon: Clock,
+      roles: ['USER', 'POWER_USER', 'ADMIN'],
+    },
+    {
+      href: '/daily-report',
+      label: 'Daily Report',
+      icon: FileText,
+      roles: ['USER', 'POWER_USER', 'ADMIN'],
+    },
+    {
+      href: '/work-summary',
+      label: 'Work Summary',
+      icon: BarChart3,
       roles: ['USER', 'POWER_USER', 'ADMIN'],
     },
     {

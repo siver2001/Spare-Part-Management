@@ -10,13 +10,17 @@ import {
   ChevronsUpDown,
   Trash2,
   Edit,
+  Edit2,
   RefreshCw,
   Clock,
   AlertCircle,
   CheckCircle2,
   ClipboardList,
   Search,
-  History
+  History,
+  Wrench,
+  Save,
+  X
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
@@ -221,12 +225,83 @@ export default function PmDailyPlannerPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [workingHours, setWorkingHours] = useState<Awaited<ReturnType<typeof SupabaseService.getWorkingHours>>>(initialWorkingHoursRef.current);
   const [plannerMode, setPlannerMode] = useState<'active' | 'history'>('active');
+  const [customMachines, setCustomMachines] = useState<string[]>([]);
   const itemsPerPage = 10;
+
+  const fetchCustomMachines = useCallback(async () => {
+    try {
+      const data = await SupabaseService.getCustomMachines();
+      setCustomMachines(data);
+    } catch (error) {
+      console.error('Error fetching custom machines:', error);
+    }
+  }, []);
+
+  const [newMachineDialogOpen, setNewMachineDialogOpen] = useState(false);
+  const [newMachineName, setNewMachineName] = useState('');
+  const [addingMachine, setAddingMachine] = useState(false);
+  const [editingMachineName, setEditingMachineName] = useState<string | null>(null);
+  const [editMachineInput, setEditMachineInput] = useState('');
+
+  const handleAddNewMachine = async () => {
+    const name = newMachineName.trim();
+    if (!name) return;
+    
+    setAddingMachine(true);
+    try {
+      await SupabaseService.createCustomMachine(name);
+      toast.success(`Đã thêm máy "${name}" thành công!`);
+      await fetchCustomMachines();
+      setFormData(prev => ({ ...prev, idMachine: name }));
+      setNewMachineDialogOpen(false);
+      setNewMachineName('');
+    } catch (error) {
+      console.error('Error adding machine:', error);
+      toast.error('Lỗi khi thêm máy mới');
+    } finally {
+      setAddingMachine(false);
+    }
+  };
+
+  const handleDeleteMachine = async (name: string) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa máy "${name}" không?`)) return;
+    try {
+      await SupabaseService.deleteCustomMachine(name);
+      toast.success(`Đã xóa máy "${name}" thành công!`);
+      await fetchCustomMachines();
+      if (formData.idMachine === name) {
+        setFormData(prev => ({ ...prev, idMachine: '' }));
+      }
+    } catch (error) {
+      console.error('Error deleting machine:', error);
+      toast.error('Lỗi khi xóa máy');
+    }
+  };
+
+  const handleSaveEditMachine = async (oldName: string) => {
+    const newName = editMachineInput.trim();
+    if (!newName || newName === oldName) {
+      setEditingMachineName(null);
+      return;
+    }
+    try {
+      await SupabaseService.updateCustomMachine(oldName, newName);
+      toast.success(`Đã cập nhật máy thành "${newName}" thành công!`);
+      await fetchCustomMachines();
+      if (formData.idMachine === oldName) {
+        setFormData(prev => ({ ...prev, idMachine: newName }));
+      }
+      setEditingMachineName(null);
+    } catch (error) {
+      console.error('Error updating machine:', error);
+      toast.error('Lỗi khi cập nhật máy');
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
     
-    // Fetch users and working hours
+    // Fetch users, working hours and custom machines
     const fetchData = async () => {
         try {
             const [userData, whData] = await Promise.all([
@@ -235,12 +310,13 @@ export default function PmDailyPlannerPage() {
             ]);
             setUsers(userData.filter(u => u.isActive));
             setWorkingHours(whData);
+            void fetchCustomMachines();
         } catch (error) {
             console.error("Failed to fetch data", error);
         }
     };
     fetchData();
-  }, []);
+  }, [fetchCustomMachines]);
 
     // New Handover State
   const [isHandoverMode, setIsHandoverMode] = useState(false);
@@ -1589,7 +1665,18 @@ export default function PmDailyPlannerPage() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-500">Machine / Asset</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold text-slate-500">Machine / Asset</Label>
+                      {user?.role === 'ADMIN' && (
+                        <button
+                          type="button"
+                          onClick={() => setNewMachineDialogOpen(true)}
+                          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                        >
+                          + Quản lý máy
+                        </button>
+                      )}
+                    </div>
                     {formData.workshop ? (
                       <Select disabled={isReadOnly}
                       value={formData.idMachine} 
@@ -1599,7 +1686,10 @@ export default function PmDailyPlannerPage() {
                           <SelectValue placeholder="Select Machine" />
                         </SelectTrigger>
                         <SelectContent>
-                          {MACHINE_LIST_DATA[formData.workshop as keyof typeof MACHINE_LIST_DATA]?.map(m => (
+                          {Array.from(new Set([
+                            ...(MACHINE_LIST_DATA[formData.workshop as keyof typeof MACHINE_LIST_DATA] || []),
+                            ...customMachines
+                          ])).map(m => (
                             <SelectItem key={m} value={m}>{m}</SelectItem>
                           ))}
                         </SelectContent>
@@ -2013,6 +2103,141 @@ export default function PmDailyPlannerPage() {
               className="w-full bg-linear-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 sm:w-auto"
             >
               Delete Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Machines Dialog */}
+      <Dialog open={newMachineDialogOpen} onOpenChange={setNewMachineDialogOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-6 border-0 shadow-2xl bg-white animate-in fade-in zoom-in-95 duration-200">
+          <DialogHeader className="space-y-3">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-500 border border-indigo-100">
+              <Wrench className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-center text-lg font-black text-slate-800">
+              Quản lý danh sách máy móc
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs text-slate-500 font-medium leading-relaxed">
+              Thêm, sửa, hoặc xóa các loại máy móc tùy chỉnh trên toàn hệ thống.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Add Section */}
+          {user?.role === 'ADMIN' && (
+            <div className="space-y-2 pt-2 border-b pb-4">
+              <Label htmlFor="new-machine-name" className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Thêm máy mới:
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="new-machine-name"
+                  placeholder="Ví dụ: Máy ép nhiệt 3D..."
+                  value={newMachineName}
+                  onChange={(e) => setNewMachineName(e.target.value)}
+                  className="h-9 text-xs font-semibold border-slate-200 bg-white"
+                />
+                <Button
+                  onClick={handleAddNewMachine}
+                  disabled={addingMachine || !newMachineName.trim()}
+                  className="h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                >
+                  {addingMachine ? 'Đang thêm...' : 'Thêm'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* List Section */}
+          <div className="space-y-2 py-4">
+            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Danh sách máy tùy chỉnh ({customMachines.length}):
+            </Label>
+            {customMachines.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-2 text-center">Chưa có máy tùy chỉnh nào được tạo.</p>
+            ) : (
+              <ScrollArea className="max-h-[200px] border rounded-lg p-2 bg-slate-50/50">
+                <div className="space-y-2">
+                  {customMachines.map((m) => {
+                    const isEditing = editingMachineName === m;
+                    return (
+                      <div key={m} className="flex items-center justify-between gap-2 p-2 bg-white rounded-md border text-xs font-semibold text-slate-700 shadow-xs">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1.5 w-full">
+                            <Input
+                              value={editMachineInput}
+                              onChange={(e) => setEditMachineInput(e.target.value)}
+                              className="h-7 text-xs font-semibold py-0.5 px-2 flex-1"
+                              autoFocus
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-emerald-600 hover:bg-emerald-50"
+                              onClick={() => handleSaveEditMachine(m)}
+                              title="Lưu"
+                            >
+                              <Save className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-slate-400 hover:bg-slate-50"
+                              onClick={() => setEditingMachineName(null)}
+                              title="Hủy"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="truncate flex-1">{m}</span>
+                            {user?.role === 'ADMIN' && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-slate-400 hover:text-slate-800 hover:bg-slate-100"
+                                  onClick={() => {
+                                    setEditingMachineName(m);
+                                    setEditMachineInput(m);
+                                  }}
+                                  title="Chỉnh sửa"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                                  onClick={() => handleDeleteMachine(m)}
+                                  title="Xóa"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+
+          <DialogFooter className="border-t pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNewMachineDialogOpen(false);
+                setNewMachineName('');
+                setEditingMachineName(null);
+              }}
+              className="w-full sm:w-auto h-9 text-xs font-bold border-slate-200 rounded-xl hover:bg-slate-50"
+            >
+              Đóng lại
             </Button>
           </DialogFooter>
         </DialogContent>

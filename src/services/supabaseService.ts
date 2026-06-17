@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { SparePart, Transaction, User, Role, WorkingHours } from '@/types';
+import { SparePart, Transaction, User, Role, WorkingHours, WorkReport } from '@/types';
 import {
   invalidateClientCache,
   peekClientCache,
@@ -21,6 +21,7 @@ const CACHE_KEYS = {
   parts: 'spare-parts',
   transactions: 'transactions',
   workingHours: 'working-hours',
+  workReports: 'work-reports',
 } as const;
 
 const CACHE_TTL = {
@@ -28,6 +29,7 @@ const CACHE_TTL = {
   parts: 2 * 60 * 1000,
   transactions: 60 * 1000,
   workingHours: 10 * 60 * 1000,
+  workReports: 2 * 60 * 1000,
 } as const;
 
 const TRANSACTION_CLEANUP_KEY = 'transactions-cleanup-last-run';
@@ -93,6 +95,20 @@ const mapWorkingHours = (row: Record<string, unknown>): WorkingHours => ({
   fullName: String(row.full_name),
   department: String(row.department),
   days: row.hours as Record<string, string | number>,
+  createdAt: String(row.created_at)
+});
+
+const mapWorkReport = (row: Record<string, unknown>): WorkReport => ({
+  id: String(row.id),
+  userId: String(row.user_id),
+  username: String(row.username),
+  displayName: String(row.display_name || ''),
+  reportDate: String(row.report_date),
+  startTime: String(row.start_time).slice(0, 5), // Format HH:MM from HH:MM:SS
+  endTime: String(row.end_time).slice(0, 5),     // Format HH:MM from HH:MM:SS
+  activity: String(row.activity),
+  workType: (row.work_type as 'MACHINE_REPAIR' | 'OTHER' | undefined) || 'OTHER',
+  machineName: (row.machine_name as string | undefined) || null,
   createdAt: String(row.created_at)
 });
 
@@ -681,5 +697,438 @@ export const SupabaseService = {
 
     if (error) throw error;
     invalidateClientCache(CACHE_KEYS.workingHours);
+  },
+
+  getWorkReports: async (dateStr?: string, userId?: string, options: QueryOptions = {}, endDateStr?: string): Promise<WorkReport[]> => {
+    let isMock = false;
+    if (typeof window !== 'undefined') {
+      const sessionStr = localStorage.getItem('session_user');
+      if (sessionStr) {
+        try {
+          const sessionUser = JSON.parse(sessionStr);
+          if (sessionUser && sessionUser.id && sessionUser.id.startsWith('m-')) {
+            isMock = true;
+          }
+        } catch {
+          isMock = true;
+        }
+      } else {
+        isMock = true;
+      }
+    }
+    if (userId && userId.startsWith('m-')) {
+      isMock = true;
+    }
+    
+    if (isMock) {
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_work_reports') || '[]';
+        let list = JSON.parse(localDataStr) as WorkReport[];
+        if (dateStr) {
+          if (endDateStr) {
+            list = list.filter(r => r.reportDate >= dateStr && r.reportDate <= endDateStr);
+          } else {
+            list = list.filter(r => r.reportDate === dateStr);
+          }
+        }
+        if (userId) {
+          list = list.filter(r => r.userId === userId);
+        }
+        return list.sort((a, b) => {
+          if (a.reportDate !== b.reportDate) {
+            return b.reportDate.localeCompare(a.reportDate);
+          }
+          return a.startTime.localeCompare(b.startTime);
+        });
+      }
+      return [];
+    }
+
+    try {
+      let query = supabase.from('work_reports').select('*');
+      
+      if (dateStr) {
+        if (endDateStr) {
+          query = query.gte('report_date', dateStr).lte('report_date', endDateStr);
+        } else {
+          query = query.eq('report_date', dateStr);
+        }
+      }
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      
+      const { data, error } = await query
+        .order('report_date', { ascending: false })
+        .order('start_time', { ascending: true });
+        
+      if (error) throw error;
+      return (data || []).map((row) => mapWorkReport(row as Record<string, unknown>));
+    } catch (dbError) {
+      console.warn('Supabase getWorkReports failed, falling back to LocalStorage:', dbError);
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_work_reports') || '[]';
+        let list = JSON.parse(localDataStr) as WorkReport[];
+        if (dateStr) {
+          if (endDateStr) {
+            list = list.filter(r => r.reportDate >= dateStr && r.reportDate <= endDateStr);
+          } else {
+            list = list.filter(r => r.reportDate === dateStr);
+          }
+        }
+        if (userId) {
+          list = list.filter(r => r.userId === userId);
+        }
+        return list.sort((a, b) => {
+          if (a.reportDate !== b.reportDate) {
+            return b.reportDate.localeCompare(a.reportDate);
+          }
+          return a.startTime.localeCompare(b.startTime);
+        });
+      }
+      return [];
+    }
+  },
+
+  createWorkReport: async (report: Omit<WorkReport, 'id' | 'createdAt'>): Promise<WorkReport> => {
+    const isMock = !report.userId || report.userId.startsWith('m-');
+
+    if (isMock) {
+      const newReport: WorkReport = {
+        id: `local-wr-${Math.random().toString(36).substring(2)}-${Date.now()}`,
+        ...report,
+        createdAt: new Date().toISOString()
+      };
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_work_reports') || '[]';
+        const list = JSON.parse(localDataStr) as WorkReport[];
+        
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0];
+        
+        const filteredList = list.filter(r => r.reportDate >= threeMonthsAgoStr);
+        filteredList.push(newReport);
+        
+        localStorage.setItem('mock_work_reports', JSON.stringify(filteredList));
+      }
+      return newReport;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('work_reports')
+        .insert([{
+          user_id: report.userId,
+          username: report.username,
+          display_name: report.displayName,
+          report_date: report.reportDate,
+          start_time: report.startTime,
+          end_time: report.endTime,
+          activity: report.activity,
+          work_type: report.workType || 'OTHER',
+          machine_name: report.machineName || null
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return mapWorkReport(data as Record<string, unknown>);
+    } catch (dbError) {
+      console.warn('Supabase createWorkReport failed, falling back to LocalStorage:', dbError);
+      const newReport: WorkReport = {
+        id: `local-wr-${Math.random().toString(36).substring(2)}-${Date.now()}`,
+        ...report,
+        createdAt: new Date().toISOString()
+      };
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_work_reports') || '[]';
+        const list = JSON.parse(localDataStr) as WorkReport[];
+        
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0];
+        
+        const filteredList = list.filter(r => r.reportDate >= threeMonthsAgoStr);
+        filteredList.push(newReport);
+        
+        localStorage.setItem('mock_work_reports', JSON.stringify(filteredList));
+      }
+      return newReport;
+    }
+  },
+
+  updateWorkReport: async (id: string, updates: Partial<WorkReport>): Promise<WorkReport> => {
+    const isMock = id.startsWith('local-wr-') || (updates.userId && updates.userId.startsWith('m-'));
+
+    if (isMock) {
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_work_reports') || '[]';
+        const list = JSON.parse(localDataStr) as WorkReport[];
+        const idx = list.findIndex(r => r.id === id);
+        if (idx !== -1) {
+          list[idx] = { ...list[idx], ...updates };
+          localStorage.setItem('mock_work_reports', JSON.stringify(list));
+          return list[idx];
+        }
+      }
+      throw new Error(`Report entry ${id} not found in LocalStorage.`);
+    }
+
+    try {
+      const mappedUpdates: Record<string, unknown> = {};
+      if (updates.reportDate !== undefined) mappedUpdates.report_date = updates.reportDate;
+      if (updates.startTime !== undefined) mappedUpdates.start_time = updates.startTime;
+      if (updates.endTime !== undefined) mappedUpdates.end_time = updates.endTime;
+      if (updates.activity !== undefined) mappedUpdates.activity = updates.activity;
+      if (updates.workType !== undefined) mappedUpdates.work_type = updates.workType;
+      if (updates.machineName !== undefined) mappedUpdates.machine_name = updates.machineName;
+
+      const { data, error } = await supabase
+        .from('work_reports')
+        .update(mappedUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return mapWorkReport(data as Record<string, unknown>);
+    } catch (dbError) {
+      console.warn('Supabase updateWorkReport failed, falling back to LocalStorage:', dbError);
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_work_reports') || '[]';
+        const list = JSON.parse(localDataStr) as WorkReport[];
+        const idx = list.findIndex(r => r.id === id);
+        if (idx !== -1) {
+          list[idx] = { ...list[idx], ...updates };
+          localStorage.setItem('mock_work_reports', JSON.stringify(list));
+          return list[idx];
+        }
+      }
+      throw new Error(`Report entry ${id} not found in LocalStorage.`);
+    }
+  },
+
+  deleteWorkReport: async (id: string): Promise<void> => {
+    const isMock = id.startsWith('local-wr-');
+
+    if (isMock) {
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_work_reports') || '[]';
+        const list = JSON.parse(localDataStr) as WorkReport[];
+        const filtered = list.filter(r => r.id !== id);
+        localStorage.setItem('mock_work_reports', JSON.stringify(filtered));
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('work_reports')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (dbError) {
+      console.warn('Supabase deleteWorkReport failed, falling back to LocalStorage:', dbError);
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_work_reports') || '[]';
+        const list = JSON.parse(localDataStr) as WorkReport[];
+        const filtered = list.filter(r => r.id !== id);
+        localStorage.setItem('mock_work_reports', JSON.stringify(filtered));
+      }
+    }
+  },
+
+  getCustomMachines: async (): Promise<string[]> => {
+    let isMock = false;
+    if (typeof window !== 'undefined') {
+      const sessionStr = localStorage.getItem('session_user');
+      if (sessionStr) {
+        try {
+          const sessionUser = JSON.parse(sessionStr);
+          if (sessionUser && sessionUser.id && sessionUser.id.startsWith('m-')) {
+            isMock = true;
+          }
+        } catch {
+          isMock = true;
+        }
+      } else {
+        isMock = true;
+      }
+    }
+    
+    if (isMock) {
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_custom_machines') || '[]';
+        return JSON.parse(localDataStr) as string[];
+      }
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('machines')
+        .select('name')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data || []).map((m: { name: string }) => m.name);
+    } catch (dbError) {
+      console.warn('Supabase getCustomMachines failed, falling back to LocalStorage:', dbError);
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_custom_machines') || '[]';
+        return JSON.parse(localDataStr) as string[];
+      }
+      return [];
+    }
+  },
+
+  createCustomMachine: async (name: string): Promise<string> => {
+    let isMock = false;
+    if (typeof window !== 'undefined') {
+      const sessionStr = localStorage.getItem('session_user');
+      if (sessionStr) {
+        try {
+          const sessionUser = JSON.parse(sessionStr);
+          if (sessionUser && sessionUser.id && sessionUser.id.startsWith('m-')) {
+            isMock = true;
+          }
+        } catch {
+          isMock = true;
+        }
+      } else {
+        isMock = true;
+      }
+    }
+
+    if (isMock) {
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_custom_machines') || '[]';
+        const list = JSON.parse(localDataStr) as string[];
+        if (!list.includes(name)) {
+          list.push(name);
+          localStorage.setItem('mock_custom_machines', JSON.stringify(list));
+        }
+      }
+      return name;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('machines')
+        .insert([{ name }])
+        .select()
+        .single();
+      if (error) throw error;
+      return String(data.name);
+    } catch (dbError) {
+      console.warn('Supabase createCustomMachine failed, falling back to LocalStorage:', dbError);
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_custom_machines') || '[]';
+        const list = JSON.parse(localDataStr) as string[];
+        if (!list.includes(name)) {
+          list.push(name);
+          localStorage.setItem('mock_custom_machines', JSON.stringify(list));
+        }
+      }
+      return name;
+    }
+  },
+
+  updateCustomMachine: async (oldName: string, newName: string): Promise<void> => {
+    let isMock = false;
+    if (typeof window !== 'undefined') {
+      const sessionStr = localStorage.getItem('session_user');
+      if (sessionStr) {
+        try {
+          const sessionUser = JSON.parse(sessionStr);
+          if (sessionUser && sessionUser.id && sessionUser.id.startsWith('m-')) {
+            isMock = true;
+          }
+        } catch {
+          isMock = true;
+        }
+      } else {
+        isMock = true;
+      }
+    }
+
+    if (isMock) {
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_custom_machines') || '[]';
+        const list = JSON.parse(localDataStr) as string[];
+        const idx = list.indexOf(oldName);
+        if (idx !== -1) {
+          list[idx] = newName;
+          localStorage.setItem('mock_custom_machines', JSON.stringify(list));
+        }
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('machines')
+        .update({ name: newName })
+        .eq('name', oldName);
+      if (error) throw error;
+    } catch (dbError) {
+      console.warn('Supabase updateCustomMachine failed, falling back to LocalStorage:', dbError);
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_custom_machines') || '[]';
+        const list = JSON.parse(localDataStr) as string[];
+        const idx = list.indexOf(oldName);
+        if (idx !== -1) {
+          list[idx] = newName;
+          localStorage.setItem('mock_custom_machines', JSON.stringify(list));
+        }
+      }
+    }
+  },
+
+  deleteCustomMachine: async (name: string): Promise<void> => {
+    let isMock = false;
+    if (typeof window !== 'undefined') {
+      const sessionStr = localStorage.getItem('session_user');
+      if (sessionStr) {
+        try {
+          const sessionUser = JSON.parse(sessionStr);
+          if (sessionUser && sessionUser.id && sessionUser.id.startsWith('m-')) {
+            isMock = true;
+          }
+        } catch {
+          isMock = true;
+        }
+      } else {
+        isMock = true;
+      }
+    }
+
+    if (isMock) {
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_custom_machines') || '[]';
+        const list = JSON.parse(localDataStr) as string[];
+        const filtered = list.filter(m => m !== name);
+        localStorage.setItem('mock_custom_machines', JSON.stringify(filtered));
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('machines')
+        .delete()
+        .eq('name', name);
+      if (error) throw error;
+    } catch (dbError) {
+      console.warn('Supabase deleteCustomMachine failed, falling back to LocalStorage:', dbError);
+      if (typeof window !== 'undefined') {
+        const localDataStr = localStorage.getItem('mock_custom_machines') || '[]';
+        const list = JSON.parse(localDataStr) as string[];
+        const filtered = list.filter(m => m !== name);
+        localStorage.setItem('mock_custom_machines', JSON.stringify(filtered));
+      }
+    }
   }
-};
+}
+;

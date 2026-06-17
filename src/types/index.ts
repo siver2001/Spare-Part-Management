@@ -65,3 +65,17 @@ export interface WorkingHours {
   days: Record<string, string | number>;
   createdAt: string;
 }
+
+export interface WorkReport {
+  id: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  reportDate: string; // YYYY-MM-DD
+  startTime: string;  // HH:MM
+  endTime: string;    // HH:MM
+  activity: string;
+  workType?: 'MACHINE_REPAIR' | 'OTHER';
+  machineName?: string | null;
+  createdAt: string;  // ISO date string
+}
